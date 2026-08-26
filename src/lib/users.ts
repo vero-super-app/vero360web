@@ -136,8 +136,14 @@ export function parseAppUser(id: string, data: Record<string, unknown>): AppUser
     accountStatus: parseAccountStatus(data),
     authProvider: detectAuthProvider(data),
     photoURL: str(data.photoURL) || str(data.photoUrl) || str(data.profilepicture) || null,
-    createdAt: tsToIso(data.createdAt) || tsToIso(data.updatedAt),
-    updatedAt: tsToIso(data.updatedAt),
+    // Prefer true registration time only — never fall back to updatedAt/lastLogin,
+    // or a returning user looks like a brand-new signup in the admin list.
+    createdAt:
+      tsToIso(data.createdAt) ||
+      tsToIso(data.registeredAt) ||
+      tsToIso(data.joinedAt) ||
+      null,
+    updatedAt: tsToIso(data.updatedAt) || tsToIso(data.lastLoginAt) || null,
   }
 }
 

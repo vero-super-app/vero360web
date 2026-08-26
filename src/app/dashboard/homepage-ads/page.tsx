@@ -235,9 +235,9 @@ export default function HomepageAdsAdminPage() {
   const creditOne = async (id: string) => {
     const ad = items.find(a => a.id === id)
     const ok = await confirm({
-      title: 'Credit platform fee?',
-      message: `Credit ${formatMwk(ad?.amountPaid || 0)} from “${ad?.title || id}” into the platform fee wallet.`,
-      confirmLabel: 'Credit fee',
+      title: 'Credit full amount to platform?',
+      message: `Credit the full ${formatMwk(ad?.amountPaid || 0)} from “${ad?.title || id}” into the platform wallet (100% — no percentage cut).`,
+      confirmLabel: 'Credit full amount',
       cancelLabel: 'Cancel',
     })
     if (!ok) return
@@ -268,9 +268,9 @@ export default function HomepageAdsAdminPage() {
       return
     }
     const ok = await confirm({
-      title: 'Credit all pending advert fees?',
-      message: `This credits ${counts.feePending} paid advert(s) into the platform fee wallet (Finance → Wallets).`,
-      confirmLabel: 'Credit all',
+      title: 'Credit all pending advert payments?',
+      message: `This credits the full package price for ${counts.feePending} advert(s) into the platform wallet (100% each — no percentage cut).`,
+      confirmLabel: 'Credit all full amounts',
       cancelLabel: 'Cancel',
     })
     if (!ok) return
@@ -351,7 +351,7 @@ export default function HomepageAdsAdminPage() {
               disabled={busy || loading || counts.feePending <= 0}
               style={outlineBtn}
             >
-              Credit pending fees ({counts.feePending})
+              Credit pending full amounts ({counts.feePending})
             </button>
             <DashboardRefreshButton onClick={() => void load()} disabled={loading || busy} />
           </div>
@@ -704,7 +704,7 @@ export default function HomepageAdsAdminPage() {
                           onClick={() => void creditOne(ad.id)}
                           style={primaryBtn}
                         >
-                          Credit platform fee
+                          Credit full amount
                         </button>
                       ) : null}
                       {ad.status !== 'active' ? (

@@ -216,7 +216,10 @@ async function ensurePlatformWallet(): Promise<string> {
   return ref.id
 }
 
-/** Credit full digital order amount to Vero platform (super_admin) wallet. */
+/**
+ * Credit **100%** of the digital order payment to the Vero platform wallet.
+ * Never applies marketplace/ride percentage fees — full [amountMwk] only.
+ */
 export async function creditDigitalOrderPlatformFee(orderId: string): Promise<{
   order: DigitalServiceOrder
   credited: boolean
@@ -238,15 +241,16 @@ export async function creditDigitalOrderPlatformFee(orderId: string): Promise<{
         credited: false,
         amount: order.amountMwk,
         transactionId: order.platformFeeTxId,
-        message: 'Platform fee already credited for this order',
+        message: 'Full amount already credited for this order',
       }
     }
 
+    // Full paid amount — do not multiply by any fee rate.
     const amount = order.amountMwk
     if (amount <= 0) throw new Error('Order has no paid amount to credit')
 
     if (order.status === 'pending_payment' && !order.paidAt) {
-      throw new Error('Order is still pending payment — fee not credited yet')
+      throw new Error('Order is still pending payment — amount not credited yet')
     }
 
     const walletRef = db.collection(WALLETS_COLLECTION).doc(PLATFORM_WALLET_DOC_ID)
@@ -271,7 +275,7 @@ export async function creditDigitalOrderPlatformFee(orderId: string): Promise<{
     }
 
     const transactionId = `TXN_DIG_${order.id}_${Date.now()}`
-    const description = `Digital service · ${order.productName}`.slice(0, 180)
+    const description = `Digital service (full) · ${order.productName}`.slice(0, 180)
     const reference = order.txRef || `digital:${order.id}`
 
     tx.set(db.collection(WALLET_TX_COLLECTION).doc(transactionId), {
@@ -284,6 +288,7 @@ export async function creditDigitalOrderPlatformFee(orderId: string): Promise<{
       description,
       reference,
       source: 'digital_service',
+      feeMode: 'full',
       digitalOrderId: order.id,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -295,6 +300,8 @@ export async function creditDigitalOrderPlatformFee(orderId: string): Promise<{
         platformFeeCredited: true,
         platformFeeTxId: transactionId,
         platformFeeCreditedAt: FieldValue.serverTimestamp(),
+        platformFeeAmount: amount,
+        platformFeeMode: 'full',
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -309,7 +316,7 @@ export async function creditDigitalOrderPlatformFee(orderId: string): Promise<{
       credited: true,
       amount,
       transactionId,
-      message: `Credited ${amount} MWK to platform fee wallet`,
+      message: `Credited full ${amount} MWK to platform wallet`,
     }
   })
 }

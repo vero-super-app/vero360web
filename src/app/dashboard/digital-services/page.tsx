@@ -174,9 +174,9 @@ export default function DigitalServicesAdminPage() {
       return
     }
     const ok = await confirm({
-      title: 'Credit all pending digital fees?',
-      message: `This credits ${counts.feePending} paid order(s) into the platform fee wallet (Finance → Wallets).`,
-      confirmLabel: 'Credit all',
+      title: 'Credit all pending digital payments?',
+      message: `This credits the full paid amount for ${counts.feePending} order(s) into the platform wallet (100% each — no percentage cut).`,
+      confirmLabel: 'Credit all full amounts',
       cancelLabel: 'Cancel',
     })
     if (!ok) return
@@ -250,7 +250,7 @@ export default function DigitalServicesAdminPage() {
               disabled={busy || loading || counts.feePending <= 0}
               style={primaryBtn}
             >
-              Credit pending fees ({counts.feePending})
+              Credit pending full amounts ({counts.feePending})
             </button>
             <DashboardRefreshButton onClick={() => void load()} disabled={loading || busy} />
           </div>
@@ -419,7 +419,7 @@ export default function DigitalServicesAdminPage() {
                         onClick={() => void creditOne(o.id)}
                         style={primaryBtn}
                       >
-                        Credit platform fee
+                        Credit full amount
                       </button>
                     ) : null}
                     {o.status !== 'fulfilled' ? (

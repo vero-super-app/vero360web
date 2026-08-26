@@ -374,8 +374,8 @@ async function ensurePlatformWallet(): Promise<string> {
 }
 
 /**
- * Credit the full advert package fee into the platform (super_admin) wallet
- * as a service_fee / platform fee. Idempotent via platformFeeCredited flag.
+ * Credit **100%** of the advert package price to the platform wallet.
+ * Never applies marketplace/ride percentage fees — full [amountPaid] only.
  */
 export async function creditAdvertPlatformFee(advertId: string): Promise<{
   advert: HomepageAdvert
@@ -399,10 +399,11 @@ export async function creditAdvertPlatformFee(advertId: string): Promise<{
         credited: false,
         amount: advert.amountPaid,
         transactionId: advert.platformFeeTxId,
-        message: 'Platform fee already credited for this advert',
+        message: 'Full amount already credited for this advert',
       }
     }
 
+    // Full package price — do not multiply by any fee rate.
     const amount = advert.amountPaid
     if (amount <= 0) {
       throw new Error('Advert has no paid package amount to credit')
@@ -415,7 +416,7 @@ export async function creditAdvertPlatformFee(advertId: string): Promise<{
       advert.status === 'expired' ||
       advert.status === 'disabled'
     if (!paid && advert.status === 'pending_payment') {
-      throw new Error('Advert is still pending payment — fee not credited yet')
+      throw new Error('Advert is still pending payment — amount not credited yet')
     }
 
     const walletRef = db.collection(WALLETS_COLLECTION).doc(PLATFORM_WALLET_DOC_ID)
@@ -441,7 +442,7 @@ export async function creditAdvertPlatformFee(advertId: string): Promise<{
 
     const transactionId = `TXN_AD_${advert.id}_${Date.now()}`
     const txRef = db.collection(WALLET_TX_COLLECTION).doc(transactionId)
-    const description = `Homepage advert fee · ${advert.title}`.slice(0, 180)
+    const description = `Homepage advert (full) · ${advert.title}`.slice(0, 180)
     const reference = advert.txRef || `homepage_ad:${advert.id}`
 
     tx.set(txRef, {
@@ -454,6 +455,7 @@ export async function creditAdvertPlatformFee(advertId: string): Promise<{
       description,
       reference,
       source: 'homepage_advert',
+      feeMode: 'full',
       advertId: advert.id,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -465,6 +467,8 @@ export async function creditAdvertPlatformFee(advertId: string): Promise<{
         platformFeeCredited: true,
         platformFeeTxId: transactionId,
         platformFeeCreditedAt: FieldValue.serverTimestamp(),
+        platformFeeAmount: amount,
+        platformFeeMode: 'full',
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -479,7 +483,7 @@ export async function creditAdvertPlatformFee(advertId: string): Promise<{
       credited: true,
       amount,
       transactionId,
-      message: `Credited ${amount} MWK to platform fee wallet`,
+      message: `Credited full ${amount} MWK to platform wallet`,
     }
   })
 }

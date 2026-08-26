@@ -17,9 +17,15 @@ async function enrichFromFirebaseAuth(users: AppUser[]): Promise<AppUser[]> {
   const auth = getAdminAuth()
   const byId = new Map(users.map(u => [u.id, u]))
 
-  // Prefer enriching rows that look empty (typical Google/Apple Firestore stubs).
+  // Prefer enriching stubs AND anyone missing a stable createdAt (needed for sort).
   const needsEnrich = users.filter(
-    u => !u.email || !u.name || u.name === '—' || !u.phone || u.authProvider === 'unknown',
+    u =>
+      !u.createdAt ||
+      !u.email ||
+      !u.name ||
+      u.name === '—' ||
+      !u.phone ||
+      u.authProvider === 'unknown',
   )
   const ids = (needsEnrich.length ? needsEnrich : users).map(u => u.id)
 
@@ -39,6 +45,7 @@ async function enrichFromFirebaseAuth(users: AppUser[]): Promise<AppUser[]> {
             photoURL: record.photoURL,
             disabled: record.disabled,
             providerIds: record.providerData.map(p => p.providerId),
+            // Auth creationTime is the stable signup moment (not last sign-in).
             creationTime: record.metadata.creationTime || null,
           }),
         )
@@ -68,18 +75,13 @@ export async function GET(request: Request) {
       console.warn('User Auth enrichment skipped:', err)
     }
 
+    // Stable newest-registration order. Do NOT sort by updatedAt/lastLogin —
+    // returning users would jump to the top and look like new signups.
     users.sort((a, b) => {
-      const at = a.updatedAt
-        ? new Date(a.updatedAt).getTime()
-        : a.createdAt
-          ? new Date(a.createdAt).getTime()
-          : 0
-      const bt = b.updatedAt
-        ? new Date(b.updatedAt).getTime()
-        : b.createdAt
-          ? new Date(b.createdAt).getTime()
-          : 0
-      return bt - at
+      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      if (bt !== at) return bt - at
+      return a.id.localeCompare(b.id)
     })
 
     return NextResponse.json({
