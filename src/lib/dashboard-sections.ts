@@ -8,6 +8,8 @@ export type DashboardSectionId =
   | 'tenders'
   | 'stay'
   | 'promotion'
+  | 'homepage-ads'
+  | 'digital-services'
   | 'latest-arrivals'
   | 'announcements'
   | 'marketplace'
@@ -87,6 +89,22 @@ export const DASHBOARD_SECTIONS: DashboardSection[] = [
     icon: 'megaphone',
     color: '#DB2777',
     bg: '#FDF2F8',
+  },
+  {
+    id: 'homepage-ads',
+    title: 'Homepage ads',
+    desc: 'Slider ads, owners, schedule, and platform fees',
+    icon: 'megaphone',
+    color: '#EA580C',
+    bg: '#FFF7ED',
+  },
+  {
+    id: 'digital-services',
+    title: 'Digital services',
+    desc: 'Subscriptions, gift cards, and platform revenue',
+    icon: 'sparkles',
+    color: '#7C3AED',
+    bg: '#F5F3FF',
   },
   {
     id: 'latest-arrivals',
@@ -218,6 +236,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { href: '/dashboard/refunds', label: 'Refunds', icon: 'refund' },
       { href: '/dashboard/merchant-reports', label: 'Merchant reports', icon: 'flag', badgeKey: 'reports' },
       { href: '/dashboard/promotion', label: 'Promotion', icon: 'megaphone' },
+      { href: '/dashboard/homepage-ads', label: 'Homepage ads', icon: 'megaphone' },
+      { href: '/dashboard/digital-services', label: 'Digital services', icon: 'sparkles' },
       { href: '/dashboard/latest-arrivals', label: 'Latest arrivals', icon: 'sparkles' },
       { href: '/dashboard/announcements', label: 'Announcements', icon: 'bell' },
     ],
