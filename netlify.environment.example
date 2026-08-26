@@ -32,3 +32,6 @@ NEXT_PUBLIC_WHATSAPP_NUMBER=265992695612
 CONTACT_TO_EMAIL=info@vero360.app
 VEROCHAT_NOTIFY_EMAIL=info@vero360.app
 FORMSUBMIT_ID=af3930657a7c20515c4324c017f006ce
+
+# Scheduled sync (optional — daily cron hits /api/cron/sync-content)
+CRON_SECRET=generate-a-long-random-string

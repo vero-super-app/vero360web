@@ -27,6 +27,11 @@ import {
   DashboardSearchField,
 } from '@/app/dashboard/DashboardChrome'
 import { useConfirmDelete } from '../ConfirmDialog'
+import {
+  AUTO_SYNC_INTERVAL_MS,
+  markAutoSyncRan,
+  shouldRunAutoSync,
+} from '@/lib/auto-sync-client'
 
 type Tab = 'all' | 'active' | 'inactive' | 'malawi' | 'international'
 
@@ -122,6 +127,52 @@ export default function JobsAdminPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const syncMalawi = useCallback(
+    async (opts?: { quiet?: boolean }) => {
+      if (!opts?.quiet) {
+        setBusyId('sync-malawi')
+        setError('')
+        setNotice('')
+      }
+      try {
+        const res = await adminFetch('/api/admin/jobs/sync-malawi', { method: 'POST' })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Malawi sync failed')
+        const parts = (data.sources || [])
+          .map(
+            (s: { source: string; ok: boolean; fetched: number; error?: string }) =>
+              s.ok ? `${s.source}: ${s.fetched}` : `${s.source}: failed`,
+          )
+          .join(' · ')
+        const message = opts?.quiet
+          ? `Auto-sync — fetched ${data.fetched ?? 0}, added ${data.created ?? 0}, skipped ${data.skipped ?? 0}.`
+          : `Malawi sync done — fetched ${data.fetched ?? 0}, added ${data.created ?? 0}, skipped ${data.skipped ?? 0}${
+              parts ? ` (${parts})` : ''
+            }. Sources: onlinejobmw.com, jobsearchmalawi.com, mwayi.mw.`
+        setNotice(message)
+        if (Array.isArray(data.errors) && data.errors.length) {
+          setError(data.errors.slice(0, 3).join(' · '))
+        }
+        await load()
+      } catch (err) {
+        if (!opts?.quiet) {
+          setError(err instanceof Error ? err.message : 'Malawi sync failed')
+        } else {
+          console.warn('Jobs auto-sync failed:', err)
+        }
+      } finally {
+        if (!opts?.quiet) setBusyId(null)
+      }
+    },
+    [load],
+  )
+
+  useEffect(() => {
+    if (!shouldRunAutoSync('jobs')) return
+    markAutoSyncRan('jobs')
+    void syncMalawi({ quiet: true })
+  }, [syncMalawi])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -291,36 +342,6 @@ export default function JobsAdminPage() {
     }
   }
 
-  const syncMalawi = async () => {
-    setBusyId('sync-malawi')
-    setError('')
-    setNotice('')
-    try {
-      const res = await adminFetch('/api/admin/jobs/sync-malawi', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Malawi sync failed')
-      const parts = (data.sources || [])
-        .map(
-          (s: { source: string; ok: boolean; fetched: number; error?: string }) =>
-            s.ok ? `${s.source}: ${s.fetched}` : `${s.source}: failed`,
-        )
-        .join(' · ')
-      setNotice(
-        `Malawi sync done — fetched ${data.fetched ?? 0}, added ${data.created ?? 0}, skipped ${data.skipped ?? 0}${
-          parts ? ` (${parts})` : ''
-        }. Sources: onlinejobmw.com, jobsearchmalawi.com, mwayi.mw.`,
-      )
-      if (Array.isArray(data.errors) && data.errors.length) {
-        setError(data.errors.slice(0, 3).join(' · '))
-      }
-      await load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Malawi sync failed')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   const tabs: Array<{ id: Tab; label: string; count: number }> = [
     { id: 'all', label: 'All', count: counts.all },
     { id: 'active', label: 'Active', count: counts.active },
@@ -335,7 +356,7 @@ export default function JobsAdminPage() {
 
       <DashboardPageHeader
         sectionId="jobs"
-        description="Post, edit, and sync listings for the Vero360 app."
+        description={`Post, edit, and sync listings for the Vero360 app. Malawi boards auto-sync when you open this page (every ${AUTO_SYNC_INTERVAL_MS / (60 * 60 * 1000)}h). International listings sync on the Nest server every 6h.`}
         actions={
           <>
             <button

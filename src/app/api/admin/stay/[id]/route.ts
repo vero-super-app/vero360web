@@ -4,7 +4,6 @@ import { getAdminDb } from '@/lib/firebase-admin'
 import { ACCOMMODATION_ROOMS_COLLECTION } from '@/lib/stay-rooms'
 import {
   apiErrorMessage,
-  getVeroAuthHeader,
   readJsonSafe,
   veroEndpoint,
 } from '@/lib/vero-api'
@@ -29,8 +28,8 @@ async function cleanupRoomOverlays(id: number) {
 }
 
 /**
- * Admin delete — same Nest path as the app: DELETE /accommodations/:id.
- * Falls back to /accommodations/admin/:id if the owner route is not reachable for admin tokens.
+ * Admin delete — Nest DELETE /accommodations/admin/:id (no owner check).
+ * Same pattern as marketplace admin delete.
  */
 export async function DELETE(request: Request, ctx: Ctx) {
   const denied = await denyUnlessPanelAdmin(request)
@@ -42,36 +41,19 @@ export async function DELETE(request: Request, ctx: Ctx) {
   }
 
   try {
-    const headers: HeadersInit = { Accept: 'application/json' }
-    const auth = getVeroAuthHeader(request)
-    if (auth) headers.Authorization = auth
-
-    let res = await fetch(veroEndpoint('accommodations', id), {
+    const res = await fetch(veroEndpoint('accommodations', 'admin', id), {
       method: 'DELETE',
-      headers,
+      headers: { Accept: 'application/json' },
       cache: 'no-store',
     })
-    let data = await readJsonSafe(res)
-
-    if (res.status === 404 || res.status === 403 || res.status === 401) {
-      const adminRes = await fetch(veroEndpoint('accommodations', 'admin', id), {
-        method: 'DELETE',
-        headers,
-        cache: 'no-store',
-      })
-      const adminData = await readJsonSafe(adminRes)
-      if (adminRes.ok || adminRes.status !== 404) {
-        res = adminRes
-        data = adminData
-      }
-    }
+    const data = await readJsonSafe(res)
 
     if (!res.ok) {
       return NextResponse.json(
         {
           error: apiErrorMessage(
             data,
-            'Failed to delete this accommodation. Check Nest DELETE /accommodations/:id (or admin bypass).',
+            'Failed to delete this accommodation. Redeploy vero-backend if Nest DELETE /accommodations/admin/:id is missing or still blocked by bookings FK.',
           ),
         },
         { status: res.status },

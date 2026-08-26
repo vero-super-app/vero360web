@@ -26,7 +26,7 @@ import {
   DashboardSearchField,
   DashboardThumbFallback,
 } from '@/app/dashboard/DashboardChrome'
-import { useConfirm } from '../ConfirmDialog'
+import { useConfirm, useConfirmDelete } from '../ConfirmDialog'
 
 const SECTION = DASHBOARD_SECTION_MAP.orders
 
@@ -50,6 +50,7 @@ const EMPTY_COUNTS: Counts = {
 
 export default function OrdersAdminPage() {
   const confirm = useConfirm()
+  const confirmDelete = useConfirmDelete()
   const [items, setItems] = useState<MarketplaceOrder[]>([])
   const [counts, setCounts] = useState<Counts>(EMPTY_COUNTS)
   const [tab, setTab] = useState<Tab>('all')
@@ -134,6 +135,43 @@ export default function OrdersAdminPage() {
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Status update failed')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const removeOrder = async (item: MarketplaceOrder) => {
+    if (
+      !(await confirmDelete(
+        item.orderNumber || `#${item.id}`,
+        'Permanently delete this marketplace order? This cannot be undone.',
+      ))
+    ) {
+      return
+    }
+
+    setBusyId(item.id)
+    setError('')
+    setNotice('')
+    try {
+      const res = await adminFetch(`/api/admin/orders/${item.id}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Delete failed')
+      setNotice(`Deleted order ${item.orderNumber || `#${item.id}`}`)
+      setItems(prev => prev.filter(o => o.id !== item.id))
+      setCounts(prev => {
+        const next = { ...prev }
+        next.all = Math.max(0, next.all - 1)
+        if (item.status in next) {
+          const key = item.status as keyof Counts
+          next[key] = Math.max(0, (next[key] as number) - 1)
+        }
+        return next
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed')
     } finally {
       setBusyId(null)
     }
@@ -445,6 +483,24 @@ export default function OrdersAdminPage() {
                         </option>
                       ))}
                     </select>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void removeOrder(item)}
+                      style={{
+                        padding: '9px 12px',
+                        borderRadius: 10,
+                        border: '1px solid #FECACA',
+                        background: busy ? '#FEE2E2' : '#FEF2F2',
+                        color: '#B91C1C',
+                        fontSize: 13,
+                        fontWeight: 800,
+                        cursor: busy ? 'wait' : 'pointer',
+                        opacity: busy ? 0.7 : 1,
+                      }}
+                    >
+                      {busy ? 'Removing…' : 'Delete'}
+                    </button>
                   </div>
                 </article>
               )

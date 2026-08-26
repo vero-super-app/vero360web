@@ -24,6 +24,11 @@ import {
   DashboardSearchField,
 } from '@/app/dashboard/DashboardChrome'
 import { useConfirmDelete } from '../ConfirmDialog'
+import {
+  AUTO_SYNC_INTERVAL_MS,
+  markAutoSyncRan,
+  shouldRunAutoSync,
+} from '@/lib/auto-sync-client'
 
 type Tab = 'all' | 'open' | 'malawitenders' | 'ppda' | 'maneps' | 'manual'
 
@@ -104,6 +109,52 @@ export default function TendersAdminPage() {
     void load()
   }, [load])
 
+  const syncMalawi = useCallback(
+    async (opts?: { quiet?: boolean }) => {
+      if (!opts?.quiet) {
+        setBusyId('sync')
+        setError('')
+        setNotice('')
+      }
+      try {
+        const res = await adminFetch('/api/admin/tenders/sync', { method: 'POST' })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Sync failed')
+        const parts = (data.sources || [])
+          .map(
+            (s: { source: string; ok: boolean; fetched: number }) =>
+              s.ok ? `${s.source}: ${s.fetched}` : `${s.source}: failed`,
+          )
+          .join(' · ')
+        const message = opts?.quiet
+          ? `Auto-sync — fetched ${data.fetched ?? 0}, added ${data.created ?? 0}, updated ${data.updated ?? 0}.`
+          : `Malawi sync done — fetched ${data.fetched ?? 0}, added ${data.created ?? 0}, updated ${data.updated ?? 0}${
+              parts ? ` (${parts})` : ''
+            }.`
+        setNotice(message)
+        if (Array.isArray(data.errors) && data.errors.length) {
+          setError(data.errors.slice(0, 3).join(' · '))
+        }
+        await load()
+      } catch (err) {
+        if (!opts?.quiet) {
+          setError(err instanceof Error ? err.message : 'Sync failed')
+        } else {
+          console.warn('Tenders auto-sync failed:', err)
+        }
+      } finally {
+        if (!opts?.quiet) setBusyId(null)
+      }
+    },
+    [load],
+  )
+
+  useEffect(() => {
+    if (!shouldRunAutoSync('tenders')) return
+    markAutoSyncRan('tenders')
+    void syncMalawi({ quiet: true })
+  }, [syncMalawi])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items.filter(t => {
@@ -122,36 +173,6 @@ export default function TendersAdminPage() {
       )
     })
   }, [items, tab, query])
-
-  const syncMalawi = async () => {
-    setBusyId('sync')
-    setError('')
-    setNotice('')
-    try {
-      const res = await adminFetch('/api/admin/tenders/sync', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Sync failed')
-      const parts = (data.sources || [])
-        .map(
-          (s: { source: string; ok: boolean; fetched: number }) =>
-            s.ok ? `${s.source}: ${s.fetched}` : `${s.source}: failed`,
-        )
-        .join(' · ')
-      setNotice(
-        `Malawi sync done — fetched ${data.fetched ?? 0}, added ${data.created ?? 0}, updated ${data.updated ?? 0}${
-          parts ? ` (${parts})` : ''
-        }.`,
-      )
-      if (Array.isArray(data.errors) && data.errors.length) {
-        setError(data.errors.slice(0, 3).join(' · '))
-      }
-      await load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sync failed')
-    } finally {
-      setBusyId(null)
-    }
-  }
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -240,7 +261,7 @@ export default function TendersAdminPage() {
       <DashboardBackLink />
       <DashboardPageHeader
         sectionId="tenders"
-        description="Sync Malawi procurement notices from malawitenders.com, maneps.mw/procurement-notice, and ppda.mw/tenders — or post one manually."
+        description={`Sync Malawi procurement notices from malawitenders.com, maneps.mw, and ppda.mw — auto-syncs when you open this page (every ${AUTO_SYNC_INTERVAL_MS / (60 * 60 * 1000)}h), or post one manually.`}
         actions={
           <>
             <button
