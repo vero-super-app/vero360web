@@ -4,6 +4,7 @@ import { adminFetch } from '@/lib/panel-client-auth'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   adminActionsFor,
+  formatCourierEstimateMwk,
   formatDateTime,
   statusLabel,
   statusTone,
@@ -62,6 +63,11 @@ export default function VeroCourierAdminPage() {
   const [notice, setNotice] = useState('')
   const [busyId, setBusyId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
+  const [cancelTarget, setCancelTarget] = useState<{
+    id: number
+    label: string
+  } | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,28 +97,46 @@ export default function VeroCourierAdminPage() {
     return byTab.filter(item => {
       const tracking = item.trackingNumber.toLowerCase()
       const id = String(item.id)
-      return tracking.includes(q) || id.includes(q) || tracking.replace(/^vc/, '').includes(q.replace(/^vc/, ''))
+      const hay = [
+        tracking,
+        id,
+        item.phone,
+        item.email,
+        item.pickupLocation,
+        item.dropoffLocation,
+        item.senderName,
+        item.recipientName,
+        item.typeOfGoods,
+        item.estimateSummary,
+        item.estimatedPriceMwk != null ? String(item.estimatedPriceMwk) : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return (
+        hay.includes(q) ||
+        tracking.replace(/^vc/, '').includes(q.replace(/^vc/, ''))
+      )
     })
   }, [items, tab, query])
 
-  const setStatus = async (id: number, status: CourierStatus, label: string) => {
+  const setStatus = async (
+    id: number,
+    status: CourierStatus,
+    label: string,
+    cancelReasonText?: string,
+  ) => {
     if (status === 'CANCELLED') {
-      if (
-        !(await confirm({
-          title: 'Reject delivery?',
-          message: `Reject delivery #${id}?\n\nThe user will see this as Rejected.`,
-          confirmLabel: 'Yes, reject',
-          cancelLabel: 'No',
-          danger: true,
-        }))
-      ) {
+      if (!cancelReasonText?.trim()) {
+        setCancelTarget({ id, label })
+        setCancelReason('')
         return
       }
     } else {
       if (
         !(await confirm({
           title: 'Confirm action?',
-          message: `${label} for delivery #${id}?`,
+          message: `${label} for delivery #${id}?\n\nThe sender will get a push notification.`,
           confirmLabel: 'Yes',
           cancelLabel: 'No',
           danger: false,
@@ -126,14 +150,25 @@ export default function VeroCourierAdminPage() {
     setNotice('')
     setBusyId(id)
     try {
+      const payload: Record<string, string> = { status }
+      if (status === 'CANCELLED' && cancelReasonText?.trim()) {
+        payload.cancelReason = cancelReasonText.trim()
+      }
       const res = await adminFetch(`/api/admin/courier/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Status update failed')
-      setNotice(`Delivery #${id} marked ${label}. User will see this update.`)
+      const pushNote = data.notified
+        ? ` Push sent${typeof data.fcmSent === 'number' && data.fcmSent > 0 ? ` (FCM ${data.fcmSent})` : ' (in-app alert)'}.`
+        : data.notifyError
+          ? ` Status saved, but push failed: ${data.notifyError}`
+          : ' Status saved (no sender uid for push).'
+      setNotice(`Delivery #${id} marked ${label}.${pushNote}`)
+      setCancelTarget(null)
+      setCancelReason('')
       if (status === 'ACCEPTED') setTab('ACCEPTED')
       else if (status === 'ON_THE_WAY') setTab('ON_THE_WAY')
       else if (status === 'DELIVERED') setTab('DELIVERED')
@@ -297,6 +332,25 @@ export default function VeroCourierAdminPage() {
                       >
                         {statusLabel(item.status)}
                       </span>
+                      {item.estimatedPriceMwk != null && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 800,
+                            padding: '4px 10px',
+                            borderRadius: 100,
+                            background: '#ECFDF5',
+                            color: '#047857',
+                            border: '1px solid #A7F3D0',
+                          }}
+                          title={item.estimateSummary || 'App price estimate'}
+                        >
+                          Est. {formatCourierEstimateMwk(item.estimatedPriceMwk)}
+                          {item.estimatedDistanceKm != null
+                            ? ` · ${item.estimatedDistanceKm.toFixed(1)} km`
+                            : ''}
+                        </span>
+                      )}
                     </div>
 
                     <div
@@ -307,6 +361,20 @@ export default function VeroCourierAdminPage() {
                         marginBottom: 10,
                       }}
                     >
+                      <Meta
+                        label="App estimate"
+                        value={
+                          formatCourierEstimateMwk(item.estimatedPriceMwk) ||
+                          'Not provided'
+                        }
+                        sub={
+                          item.estimatedDistanceKm != null
+                            ? `${item.estimatedDistanceKm.toFixed(1)} km route · from app quote`
+                            : item.estimateSummary ||
+                              'Older bookings may not include a quote'
+                        }
+                        emphasize={item.estimatedPriceMwk != null}
+                      />
                       <Meta
                         label="Sender"
                         value={item.senderName || item.phone || '—'}
@@ -329,6 +397,14 @@ export default function VeroCourierAdminPage() {
                           sub={item.descriptionOfGoods || undefined}
                         />
                       )}
+                      {item.cancelReason && (
+                        <Meta
+                          label="Rejection reason"
+                          value={item.cancelReason}
+                          danger
+                        />
+                      )}
+                      {item.notes && <Meta label="Notes" value={item.notes} />}
                     </div>
 
                     <div style={{ fontSize: 12, color: 'var(--text-4)' }}>
@@ -414,6 +490,114 @@ export default function VeroCourierAdminPage() {
           .courier-row { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      {cancelTarget ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="courier-cancel-title"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 50,
+            padding: 16,
+          }}
+          onClick={() => {
+            if (busyId == null) {
+              setCancelTarget(null)
+              setCancelReason('')
+            }
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--surface)',
+              borderRadius: 14,
+              padding: 20,
+              width: 'min(480px, 100%)',
+              border: '1px solid var(--border)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 id="courier-cancel-title" style={{ marginTop: 0 }}>
+              Reject delivery #{cancelTarget.id}?
+            </h3>
+            <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 0 }}>
+              The sender will get a push notification and see this reason in the app.
+            </p>
+            <textarea
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              rows={4}
+              placeholder="Reason for rejection…"
+              style={{
+                width: '100%',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                padding: 10,
+                resize: 'vertical',
+                fontSize: 14,
+                fontFamily: 'inherit',
+              }}
+            />
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 10,
+                marginTop: 14,
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                type="button"
+                disabled={busyId != null}
+                onClick={() => {
+                  setCancelTarget(null)
+                  setCancelReason('')
+                }}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                disabled={busyId != null || !cancelReason.trim()}
+                onClick={() =>
+                  void setStatus(
+                    cancelTarget.id,
+                    'CANCELLED',
+                    cancelTarget.label,
+                    cancelReason.trim(),
+                  )
+                }
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #FECACA',
+                  background: '#B91C1C',
+                  color: '#fff',
+                  fontWeight: 800,
+                  cursor: busyId != null || !cancelReason.trim() ? 'not-allowed' : 'pointer',
+                  opacity: busyId != null || !cancelReason.trim() ? 0.6 : 1,
+                }}
+              >
+                {busyId === cancelTarget.id ? 'Rejecting…' : 'Reject & notify'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -422,25 +606,33 @@ function Meta({
   label,
   value,
   sub,
+  emphasize,
+  danger,
 }: {
   label: string
   value: string
   sub?: string
+  emphasize?: boolean
+  danger?: boolean
 }) {
+  const bg = danger ? '#FEF2F2' : emphasize ? '#ECFDF5' : '#fff'
+  const border = danger ? '#FECACA' : emphasize ? '#A7F3D0' : 'var(--border)'
+  const labelColor = danger ? '#B91C1C' : emphasize ? '#047857' : 'var(--text-4)'
+  const valueColor = danger ? '#991B1B' : emphasize ? '#065F46' : 'var(--text)'
   return (
     <div
       style={{
         padding: '8px 10px',
         borderRadius: 10,
-        background: '#fff',
-        border: '1px solid var(--border)',
+        background: bg,
+        border: `1px solid ${border}`,
       }}
     >
       <div
         style={{
           fontSize: 11,
           fontWeight: 700,
-          color: 'var(--text-4)',
+          color: labelColor,
           textTransform: 'uppercase',
           letterSpacing: 0.4,
           marginBottom: 2,
@@ -448,7 +640,15 @@ function Meta({
       >
         {label}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
+      <div
+        style={{
+          fontSize: emphasize || danger ? 15 : 13,
+          fontWeight: 800,
+          color: valueColor,
+        }}
+      >
+        {value}
+      </div>
       {sub ? <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div> : null}
     </div>
   )

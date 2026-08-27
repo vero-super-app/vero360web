@@ -29,6 +29,14 @@ export type CourierDelivery = {
   recipientPhone: string | null
   recipientAddress: string | null
   notes: string | null
+  /** Firebase Auth uid from AdditionalInformation `SenderUid: …`. */
+  senderUid: string | null
+  /** Admin cancel/reject reason from AdditionalInformation `CancelReason: …`. */
+  cancelReason: string | null
+  /** App fare estimate (MWK) from AdditionalInformation `Estimate: MWK …`. */
+  estimatedPriceMwk: number | null
+  estimatedDistanceKm: number | null
+  estimateSummary: string | null
 }
 
 export function isCourierStatus(value: string): value is CourierStatus {
@@ -59,21 +67,76 @@ function parseStatus(raw: unknown): CourierStatus {
   return isCourierStatus(value) ? value : 'PENDING'
 }
 
+function parseEstimate(part: string): {
+  estimatedPriceMwk: number | null
+  estimatedDistanceKm: number | null
+  estimateSummary: string | null
+} {
+  // App writes: "Estimate: MWK 3500 · 3.2 km" (also accepts "About MWK 3,500", bullet/dot separators)
+  const normalized = part.replace(/[\u00B7\u2022\u2219•]/g, '·')
+  const cleaned = normalized.replace(/^estimate:\s*/i, '').trim()
+  const summary = cleaned || null
+  const priceMatch =
+    normalized.match(/mwk\s*([\d,]+(?:\.\d+)?)/i) ||
+    normalized.match(/mk\s*([\d,]+(?:\.\d+)?)/i)
+  const kmMatch = normalized.match(/([\d.]+)\s*km/i)
+  const priceRaw = priceMatch?.[1]?.replace(/,/g, '') ?? ''
+  const price = Number(priceRaw)
+  const km = Number(kmMatch?.[1] ?? '')
+  return {
+    estimatedPriceMwk: Number.isFinite(price) && price > 0 ? Math.round(price) : null,
+    estimatedDistanceKm: Number.isFinite(km) && km > 0 ? km : null,
+    estimateSummary: summary,
+  }
+}
+
+/** Pull Estimate segment from pipe metadata or a free-form AdditionalInformation blob. */
+function extractEstimateFromAdditional(raw: string) {
+  const pipePart = raw
+    .split('|')
+    .map(s => s.trim())
+    .find(part => /^estimate\s*:/i.test(part))
+  if (pipePart) return parseEstimate(pipePart)
+
+  const loose = raw.match(
+    /estimate\s*:\s*[^|]*/i,
+  )
+  if (loose?.[0]) return parseEstimate(loose[0].trim())
+
+  // Fallback: quote text without the Estimate: prefix
+  if (/mwk\s*[\d,]+/i.test(raw) && /\d+(\.\d+)?\s*km/i.test(raw)) {
+    return parseEstimate(raw)
+  }
+
+  return {
+    estimatedPriceMwk: null as number | null,
+    estimatedDistanceKm: null as number | null,
+    estimateSummary: null as string | null,
+  }
+}
+
 function parseAdditionalInfo(raw: string | null) {
   if (!raw) {
     return {
       senderName: null as string | null,
+      senderUid: null as string | null,
       recipientName: null as string | null,
       recipientPhone: null as string | null,
       recipientAddress: null as string | null,
       notes: null as string | null,
+      cancelReason: null as string | null,
+      estimatedPriceMwk: null as number | null,
+      estimatedDistanceKm: null as number | null,
+      estimateSummary: null as string | null,
     }
   }
 
   let senderName: string | null = null
+  let senderUid: string | null = null
   let recipientName: string | null = null
   let recipientPhone: string | null = null
   let recipientAddress: string | null = null
+  let cancelReason: string | null = null
   const noteParts: string[] = []
 
   for (const part of raw
@@ -83,24 +146,52 @@ function parseAdditionalInfo(raw: string | null) {
     const lower = part.toLowerCase()
     if (lower.startsWith('sender:')) {
       senderName = part.slice(part.indexOf(':') + 1).trim() || null
+    } else if (lower.startsWith('senderuid:') || lower.startsWith('sender uid:')) {
+      senderUid = part.slice(part.indexOf(':') + 1).trim() || null
     } else if (lower.startsWith('recipient phone:')) {
       recipientPhone = part.slice(part.indexOf(':') + 1).trim() || null
     } else if (lower.startsWith('recipient address:')) {
       recipientAddress = part.slice(part.indexOf(':') + 1).trim() || null
     } else if (lower.startsWith('recipient:')) {
       recipientName = part.slice(part.indexOf(':') + 1).trim() || null
+    } else if (
+      lower.startsWith('cancelreason:') ||
+      lower.startsWith('cancel reason:') ||
+      lower.startsWith('rejectionreason:') ||
+      lower.startsWith('rejection reason:')
+    ) {
+      cancelReason = part.slice(part.indexOf(':') + 1).trim() || null
+    } else if (lower.startsWith('estimate:')) {
+      // handled below via extractEstimateFromAdditional
+    } else if (
+      lower.startsWith('servicecity:') ||
+      lower.startsWith('intracityonly:')
+    ) {
+      // booking metadata — not useful as free-form notes
     } else {
       noteParts.push(part)
     }
   }
 
+  const est = extractEstimateFromAdditional(raw)
+
   return {
     senderName,
+    senderUid,
     recipientName,
     recipientPhone,
     recipientAddress,
     notes: noteParts.length ? noteParts.join(' · ') : null,
+    cancelReason,
+    estimatedPriceMwk: est.estimatedPriceMwk,
+    estimatedDistanceKm: est.estimatedDistanceKm,
+    estimateSummary: est.estimateSummary,
   }
+}
+
+export function formatCourierEstimateMwk(amount: number | null | undefined) {
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return null
+  return `MWK ${Math.round(amount).toLocaleString('en-MW')}`
 }
 
 export function parseCourierDeliveries(body: unknown): CourierDelivery[] {
@@ -130,6 +221,11 @@ export function parseCourierDeliveries(body: unknown): CourierDelivery[] {
         recipientPhone: parsed.recipientPhone,
         recipientAddress: parsed.recipientAddress,
         notes: parsed.notes,
+        senderUid: parsed.senderUid,
+        cancelReason: parsed.cancelReason,
+        estimatedPriceMwk: parsed.estimatedPriceMwk,
+        estimatedDistanceKm: parsed.estimatedDistanceKm,
+        estimateSummary: parsed.estimateSummary,
       } satisfies CourierDelivery
     })
     .filter(item => item.id > 0)

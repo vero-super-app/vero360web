@@ -6,6 +6,7 @@ type NotifyBody = {
   visitorName?: string
   visitorEmail?: string
   message?: string
+  source?: string
 }
 
 export async function POST(request: Request) {
@@ -33,13 +34,13 @@ export async function POST(request: Request) {
 
   const subject =
     type === 'new_chat'
-      ? `[VeroChat] ${visitorName} started a live chat`
-      : `[VeroChat] New message from ${visitorName}`
+      ? `[VeroChat] ${visitorName} started a live chat${body.source === 'app' ? ' (app)' : ''}`
+      : `[VeroChat] New message from ${visitorName}${body.source === 'app' ? ' (app)' : ''}`
 
   const text =
     type === 'new_chat'
-      ? `A visitor opened VeroChat on the website.\n\nName: ${visitorName}\nEmail: ${visitorEmail}\n\nOpen inbox: ${inboxUrl}`
-      : `New VeroChat message\n\nFrom: ${visitorName} (${visitorEmail})\n\n${message}\n\nReply: ${inboxUrl}`
+      ? `A ${body.source === 'app' ? 'mobile app user' : 'visitor'} opened Help Center live chat.\n\nName: ${visitorName}\nEmail: ${visitorEmail}\n\nOpen inbox: ${inboxUrl}`
+      : `New Help Center message${body.source === 'app' ? ' (app)' : ''}\n\nFrom: ${visitorName} (${visitorEmail})\n\n${message}\n\nReply: ${inboxUrl}`
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',

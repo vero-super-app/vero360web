@@ -32,16 +32,20 @@ export async function GET(request: Request) {
         return bt - at
       })
 
+    const latest = pending[0]
     return NextResponse.json({
       success: true,
       pending: pending.length,
       pendingIds: pending.map(item => item.id),
-      latest: pending[0]
+      latest: latest
         ? {
-            id: pending[0].id,
-            trackingNumber: pending[0].trackingNumber,
-            city: pending[0].city,
-            createdAt: pending[0].createdAt,
+            id: latest.id,
+            trackingNumber: latest.trackingNumber,
+            city: latest.city,
+            createdAt: latest.createdAt,
+            estimatedPriceMwk: latest.estimatedPriceMwk,
+            estimatedDistanceKm: latest.estimatedDistanceKm,
+            estimateSummary: latest.estimateSummary,
           }
         : null,
     })

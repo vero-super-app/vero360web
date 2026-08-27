@@ -220,7 +220,7 @@ export default function HelpCenterInbox() {
 
           {chatSessions.length === 0 ? (
             <p style={{ padding: 20, fontSize: 14, color: 'var(--text-3)', lineHeight: 1.6 }}>
-              No live chats yet. When visitors use Help Center on the site, they will show up here.
+              No live chats yet. When people use Help Center on the website or live chat in the app, they will show up here.
             </p>
           ) : (
             chatSessions.map(session => {
@@ -268,6 +268,9 @@ export default function HelpCenterInbox() {
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-4)', marginBottom: 4 }}>
                     {session.visitorEmail || 'No email'} · {session.status}
+                    {session.source === 'app' || session.id.startsWith('app_')
+                      ? ' · App'
+                      : ''}
                   </div>
                   <div
                     style={{

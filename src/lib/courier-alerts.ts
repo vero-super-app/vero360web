@@ -78,6 +78,11 @@ export function useCourierAlerts(enabled = true): CourierAlertState {
         const data = (await res.json()) as {
           pending?: number
           pendingIds?: number[]
+          latest?: {
+            id?: number
+            estimatedPriceMwk?: number | null
+            estimateSummary?: string | null
+          } | null
         }
         if (cancelled) return
 
@@ -97,9 +102,16 @@ export function useCourierAlerts(enabled = true): CourierAlertState {
         const knownSet = new Set(known)
         const fresh = pendingIds.filter(id => !knownSet.has(id))
         if (fresh.length > 0) {
+          const est =
+            data.latest &&
+            fresh.includes(Number(data.latest.id)) &&
+            typeof data.latest.estimatedPriceMwk === 'number' &&
+            data.latest.estimatedPriceMwk > 0
+              ? ` · Est. MWK ${Math.round(data.latest.estimatedPriceMwk).toLocaleString('en-MW')}`
+              : ''
           const message =
             fresh.length === 1
-              ? `New Vero Courier order #${fresh[0]} — Accept or Reject`
+              ? `New Vero Courier order #${fresh[0]}${est} — Accept or Reject`
               : `${fresh.length} new Vero Courier orders — Accept or Reject`
           setToast(message)
           notifyBrowser('New Vero Courier order', message)
