@@ -93,6 +93,13 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       toast: reportsToast,
       clearToast: clearReportsToast,
     },
+    payments: {
+      digitalNew,
+      homepageAdNew,
+      toast: paymentsToast,
+      toastHref: paymentsToastHref,
+      clearToast: clearPaymentsToast,
+    },
   } = useAdminAlerts()
 
   const navGroups = useMemo(() => {
@@ -125,6 +132,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     const timer = window.setTimeout(() => clearReportsToast(), 8000)
     return () => window.clearTimeout(timer)
   }, [reportsToast, clearReportsToast])
+
+  useEffect(() => {
+    if (!paymentsToast) return
+    const timer = window.setTimeout(() => clearPaymentsToast(), 10000)
+    return () => window.clearTimeout(timer)
+  }, [paymentsToast, clearPaymentsToast])
 
   useEffect(() => {
     setOpen(false)
@@ -344,7 +357,11 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                               ? newUsers
                               : item.badgeKey === 'reports'
                                 ? reportsOpen
-                                : 0
+                                : item.badgeKey === 'digital'
+                                  ? digitalNew
+                                  : item.badgeKey === 'homepageAds'
+                                    ? homepageAdNew
+                                    : 0
                     const badge =
                       badgeCount > 0 ? (badgeCount > 99 ? '99+' : String(badgeCount)) : null
 
@@ -626,6 +643,67 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                       fontSize: 12,
                       fontWeight: 600,
                       color: '#9A3412',
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </span>
+              </div>
+            )}
+            {paymentsToast && (
+              <div
+                role="status"
+                style={{
+                  marginBottom: 16,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  color: '#166534',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  boxShadow: '0 8px 24px rgba(22,163,74,0.12)',
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <VeroIcon
+                    name={
+                      paymentsToastHref?.includes('homepage') ? 'megaphone' : 'sparkles'
+                    }
+                    size={20}
+                    strokeWidth={2.35}
+                  />
+                  {paymentsToast}
+                </span>
+                <span style={{ display: 'inline-flex', gap: 8, flexShrink: 0 }}>
+                  <Link
+                    href={paymentsToastHref || '/dashboard/digital-services'}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      background: '#15803D',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={clearPaymentsToast}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      border: '1px solid #BBF7D0',
+                      background: '#fff',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#166534',
                     }}
                   >
                     Dismiss

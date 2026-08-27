@@ -5,7 +5,9 @@ import { VeroIcon } from '@/app/components/landing/icons'
 import { DASHBOARD_SECTIONS } from '@/lib/dashboard-sections'
 import {
   useCourierPendingBadge,
+  useDigitalPaymentsNewBadge,
   useHelpCenterUnreadBadge,
+  useHomepageAdPaymentsNewBadge,
   useMerchantReportsOpenBadge,
   useNewUsersBadge,
   useOrdersPendingBadge,
@@ -18,6 +20,8 @@ export default function DashboardCards() {
   const ordersPending = useOrdersPendingBadge()
   const newUsers = useNewUsersBadge()
   const reportsOpen = useMerchantReportsOpenBadge()
+  const digitalNew = useDigitalPaymentsNewBadge()
+  const homepageAdNew = useHomepageAdPaymentsNewBadge()
   const { isSuperAdmin } = usePanelSession()
 
   return (
@@ -35,6 +39,8 @@ export default function DashboardCards() {
         const isOrders = card.id === 'orders'
         const isUsers = card.id === 'users'
         const isReports = card.id === 'merchant-reports'
+        const isDigital = card.id === 'digital-services'
+        const isHomepageAds = card.id === 'homepage-ads'
         const badgeCount = isHelp
           ? unread
           : isCourier
@@ -45,7 +51,11 @@ export default function DashboardCards() {
                 ? newUsers
                 : isReports
                   ? reportsOpen
-                  : 0
+                  : isDigital
+                    ? digitalNew
+                    : isHomepageAds
+                      ? homepageAdNew
+                      : 0
         const showBadge = badgeCount > 0
         const alertLabel = isHelp
           ? `${badgeCount} unread Help Center messages`
@@ -57,7 +67,11 @@ export default function DashboardCards() {
                 ? `${badgeCount} new user${badgeCount === 1 ? '' : 's'}`
                 : isReports
                   ? `${badgeCount} open merchant report${badgeCount === 1 ? '' : 's'}`
-                  : ''
+                  : isDigital
+                    ? `${badgeCount} new digital service payment${badgeCount === 1 ? '' : 's'}`
+                    : isHomepageAds
+                      ? `${badgeCount} new homepage ad payment${badgeCount === 1 ? '' : 's'}`
+                      : ''
         const alertDesc = isHelp
           ? `${badgeCount} new message${badgeCount === 1 ? '' : 's'} waiting`
           : isCourier
@@ -68,7 +82,11 @@ export default function DashboardCards() {
                 ? `${badgeCount} new registration${badgeCount === 1 ? '' : 's'}`
                 : isReports
                   ? `${badgeCount} report${badgeCount === 1 ? '' : 's'} to review`
-                  : ''
+                  : isDigital
+                    ? `${badgeCount} payment${badgeCount === 1 ? '' : 's'} just completed`
+                    : isHomepageAds
+                      ? `${badgeCount} advert payment${badgeCount === 1 ? '' : 's'} just completed`
+                      : ''
         const alertCta = isHelp
           ? 'Reply now →'
           : isCourier
@@ -79,7 +97,11 @@ export default function DashboardCards() {
                 ? 'View users →'
                 : isReports
                   ? 'Review reports →'
-                  : ''
+                  : isDigital
+                    ? 'Open digital services →'
+                    : isHomepageAds
+                      ? 'Open homepage ads →'
+                      : ''
 
         return (
           <Link

@@ -15,6 +15,7 @@ import {
   DashboardRefreshButton,
 } from '@/app/dashboard/DashboardChrome'
 import { useConfirm, useConfirmDelete } from '../ConfirmDialog'
+import { useAdminAlerts } from '../AdminAlertsProvider'
 
 type Tab = 'subscriptions' | 'gift_cards' | 'pending' | 'all'
 
@@ -48,6 +49,11 @@ function statusTone(o: DigitalServiceOrder): { label: string; bg: string; color:
 export default function DigitalServicesAdminPage() {
   const confirm = useConfirm()
   const confirmDelete = useConfirmDelete()
+  const { markDigitalSeen, digitalNew } = useAdminAlerts().payments
+
+  useEffect(() => {
+    markDigitalSeen()
+  }, [markDigitalSeen, digitalNew])
   const [items, setItems] = useState<DigitalServiceOrder[]>([])
   const [counts, setCounts] = useState<DigitalServiceOrderCounts>(emptyCounts)
   const [tab, setTab] = useState<Tab>('subscriptions')

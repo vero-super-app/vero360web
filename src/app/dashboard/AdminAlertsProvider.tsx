@@ -5,6 +5,7 @@ import { useCourierAlerts, type CourierAlertState } from '@/lib/courier-alerts'
 import { useHelpCenterUnread } from '@/lib/help-center-alerts'
 import { useMerchantReportAlerts, type MerchantReportAlertState } from '@/lib/merchant-report-alerts'
 import { useOrderAlerts, type OrderAlertState } from '@/lib/order-alerts'
+import { usePaymentAlerts, type PaymentAlertState } from '@/lib/payment-alerts'
 import { useUserAlerts, type UserAlertState } from '@/lib/user-alerts'
 
 type AdminAlertsContextValue = {
@@ -12,6 +13,7 @@ type AdminAlertsContextValue = {
   orders: OrderAlertState
   users: UserAlertState
   merchantReports: MerchantReportAlertState
+  payments: PaymentAlertState
   helpUnread: number
 }
 
@@ -22,9 +24,12 @@ export function AdminAlertsProvider({ children }: { children: React.ReactNode })
   const orders = useOrderAlerts()
   const users = useUserAlerts()
   const merchantReports = useMerchantReportAlerts()
+  const payments = usePaymentAlerts()
   const helpUnread = useHelpCenterUnread()
   return (
-    <AdminAlertsContext.Provider value={{ courier, orders, users, merchantReports, helpUnread }}>
+    <AdminAlertsContext.Provider
+      value={{ courier, orders, users, merchantReports, payments, helpUnread }}
+    >
       {children}
     </AdminAlertsContext.Provider>
   )
@@ -62,4 +67,14 @@ export function useMerchantReportsOpenBadge() {
 export function useHelpCenterUnreadBadge() {
   const ctx = useContext(AdminAlertsContext)
   return ctx?.helpUnread ?? 0
+}
+
+export function useDigitalPaymentsNewBadge() {
+  const ctx = useContext(AdminAlertsContext)
+  return ctx?.payments.digitalNew ?? 0
+}
+
+export function useHomepageAdPaymentsNewBadge() {
+  const ctx = useContext(AdminAlertsContext)
+  return ctx?.payments.homepageAdNew ?? 0
 }

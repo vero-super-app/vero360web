@@ -27,6 +27,7 @@ import {
   DashboardThumbFallback,
 } from '@/app/dashboard/DashboardChrome'
 import { useConfirm, useConfirmDelete } from '../ConfirmDialog'
+import { useAdminAlerts } from '../AdminAlertsProvider'
 
 type Tab = 'active' | 'pending' | 'expired' | 'all'
 
@@ -84,6 +85,7 @@ function statusTone(ad: HomepageAdvert): { label: string; bg: string; color: str
 export default function HomepageAdsAdminPage() {
   const confirm = useConfirm()
   const confirmDelete = useConfirmDelete()
+  const { markHomepageAdSeen, homepageAdNew } = useAdminAlerts().payments
   const [items, setItems] = useState<HomepageAdvert[]>([])
   const [counts, setCounts] = useState<HomepageAdvertCounts>(emptyCounts)
   const [tab, setTab] = useState<Tab>('active')
@@ -94,6 +96,10 @@ export default function HomepageAdsAdminPage() {
   const [notice, setNotice] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<FormState>(emptyForm)
+
+  useEffect(() => {
+    markHomepageAdSeen()
+  }, [markHomepageAdSeen, homepageAdNew])
 
   const previewUrl = useMemo(() => {
     if (!form.imageFile) return ''

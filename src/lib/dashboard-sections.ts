@@ -202,7 +202,14 @@ export const DASHBOARD_SECTION_MAP = Object.fromEntries(
   DASHBOARD_SECTIONS.map(s => [s.id, s]),
 ) as Record<DashboardSectionId, DashboardSection>
 
-export type DashboardNavBadgeKey = 'help' | 'courier' | 'orders' | 'users' | 'reports'
+export type DashboardNavBadgeKey =
+  | 'help'
+  | 'courier'
+  | 'orders'
+  | 'users'
+  | 'reports'
+  | 'digital'
+  | 'homepageAds'
 
 export type DashboardNavItem = {
   href: string
@@ -236,8 +243,8 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
       { href: '/dashboard/refunds', label: 'Refunds', icon: 'refund' },
       { href: '/dashboard/merchant-reports', label: 'Merchant reports', icon: 'flag', badgeKey: 'reports' },
       { href: '/dashboard/promotion', label: 'Promotion', icon: 'megaphone' },
-      { href: '/dashboard/homepage-ads', label: 'Homepage ads', icon: 'megaphone' },
-      { href: '/dashboard/digital-services', label: 'Digital services', icon: 'sparkles' },
+      { href: '/dashboard/homepage-ads', label: 'Homepage ads', icon: 'megaphone', badgeKey: 'homepageAds' },
+      { href: '/dashboard/digital-services', label: 'Digital services', icon: 'sparkles', badgeKey: 'digital' },
       { href: '/dashboard/latest-arrivals', label: 'Latest arrivals', icon: 'sparkles' },
       { href: '/dashboard/announcements', label: 'Announcements', icon: 'bell' },
     ],
