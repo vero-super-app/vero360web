@@ -3,6 +3,7 @@
 import { adminFetch } from '@/lib/panel-client-auth'
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
+  getSubscriptionTiming,
   type DigitalServiceOrder,
   type DigitalServiceOrderCounts,
 } from '@/lib/digital-services'
@@ -17,7 +18,13 @@ import {
 import { useConfirm, useConfirmDelete } from '../ConfirmDialog'
 import { useAdminAlerts } from '../AdminAlertsProvider'
 
-type Tab = 'subscriptions' | 'gift_cards' | 'pending' | 'all'
+type Tab =
+  | 'subscriptions'
+  | 'active_subs'
+  | 'expired_subs'
+  | 'gift_cards'
+  | 'pending'
+  | 'all'
 
 const SECTION = DASHBOARD_SECTION_MAP['digital-services']
 
@@ -27,6 +34,8 @@ const emptyCounts: DigitalServiceOrderCounts = {
   pending: 0,
   subscriptions: 0,
   giftCards: 0,
+  activeSubscriptions: 0,
+  expiredSubscriptions: 0,
   feeCredited: 0,
   feePending: 0,
   revenuePaid: 0,
@@ -85,13 +94,32 @@ export default function DigitalServicesAdminPage() {
 
   const filtered = useMemo(() => {
     let list = items
-    if (tab === 'subscriptions') list = items.filter(o => o.kind === 'subscription')
-    else if (tab === 'gift_cards') list = items.filter(o => o.kind !== 'subscription')
-    else if (tab === 'pending') list = items.filter(o => o.status === 'pending_payment')
+    if (tab === 'subscriptions') {
+      list = items.filter(o => o.kind === 'subscription')
+    } else if (tab === 'active_subs') {
+      list = items.filter(o => {
+        if (o.kind !== 'subscription') return false
+        if (o.status === 'cancelled' || o.status === 'pending_payment') return false
+        const timing = getSubscriptionTiming(o)
+        return !timing.isExpired
+      })
+    } else if (tab === 'expired_subs') {
+      list = items.filter(o => {
+        if (o.kind !== 'subscription') return false
+        if (o.status === 'cancelled') return false
+        const timing = getSubscriptionTiming(o)
+        return timing.isExpired
+      })
+    } else if (tab === 'gift_cards') {
+      list = items.filter(o => o.kind !== 'subscription')
+    } else if (tab === 'pending') {
+      list = items.filter(o => o.status === 'pending_payment')
+    }
 
     const query = q.trim().toLowerCase()
     if (!query) return list
     return list.filter(o => {
+      const timing = o.kind === 'subscription' ? getSubscriptionTiming(o) : null
       const hay = [
         o.productName,
         o.productKey,
@@ -103,6 +131,9 @@ export default function DigitalServicesAdminPage() {
         o.kind,
         o.periodLabel,
         o.status,
+        timing?.startDate || '',
+        timing?.endDate || '',
+        timing?.label || '',
       ]
         .join(' ')
         .toLowerCase()
@@ -236,6 +267,8 @@ export default function DigitalServicesAdminPage() {
 
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'subscriptions', label: `Subscriptions (${counts.subscriptions})` },
+    { id: 'active_subs', label: `Active (${counts.activeSubscriptions})` },
+    { id: 'expired_subs', label: `Expired (${counts.expiredSubscriptions})` },
     { id: 'gift_cards', label: `Gift cards (${counts.giftCards})` },
     { id: 'pending', label: `Pending (${counts.pending})` },
     { id: 'all', label: `All (${counts.all})` },
@@ -287,9 +320,11 @@ export default function DigitalServicesAdminPage() {
           marginBottom: 18,
         }}
       >
-        <Metric label="Paid orders" value={String(counts.paid)} />
         <Metric label="Subscriptions" value={String(counts.subscriptions)} />
+        <Metric label="Active subs" value={String(counts.activeSubscriptions)} />
+        <Metric label="Expired subs" value={String(counts.expiredSubscriptions)} />
         <Metric label="Gift cards" value={String(counts.giftCards)} />
+        <Metric label="Paid orders" value={String(counts.paid)} />
         <Metric label="Revenue paid" value={formatMwk(counts.revenuePaid)} />
         <Metric label="In platform wallet" value={formatMwk(counts.revenueCredited)} />
         <Metric label="Fees pending" value={String(counts.feePending)} />
@@ -326,7 +361,7 @@ export default function DigitalServicesAdminPage() {
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder="Search product, buyer, email, tx ref…"
+          placeholder="Search product, buyer, email, tx ref, dates…"
           style={search}
         />
 
@@ -344,13 +379,16 @@ export default function DigitalServicesAdminPage() {
             {filtered.map(o => {
               const tone = statusTone(o)
               const isSub = o.kind === 'subscription'
+              const timing = isSub ? getSubscriptionTiming(o) : null
+
               return (
                 <article
                   key={o.id}
                   style={{
                     border: '1px solid var(--border)',
                     borderRadius: 16,
-                    padding: 16,
+                    padding: 18,
+                    background: '#fff',
                   }}
                 >
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -365,6 +403,29 @@ export default function DigitalServicesAdminPage() {
                     >
                       {isSub ? 'Subscription' : 'Gift card'}
                     </span>
+                    {isSub && timing && o.status !== 'cancelled' && o.status !== 'pending_payment' ? (
+                      <span
+                        style={{
+                          ...badge,
+                          background: timing.isExpired
+                            ? '#FEF2F2'
+                            : timing.isExpiringSoon
+                              ? '#FEF3C7'
+                              : '#ECFDF5',
+                          color: timing.isExpired
+                            ? '#991B1B'
+                            : timing.isExpiringSoon
+                              ? '#92400E'
+                              : '#166534',
+                        }}
+                      >
+                        {timing.isExpired
+                          ? `Expired · ${timing.label}`
+                          : timing.isExpiringSoon
+                            ? `Expiring soon · ${timing.label}`
+                            : `Active · ${timing.label}`}
+                      </span>
+                    ) : null}
                     {o.platformFeeCredited ? (
                       <span style={{ ...badge, background: '#ECFDF5', color: '#166534' }}>
                         Fee in wallet
@@ -375,6 +436,97 @@ export default function DigitalServicesAdminPage() {
                       </span>
                     ) : null}
                   </div>
+
+                  {/* Linked Subscription Period Banner */}
+                  {isSub && timing && (
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: '10px 14px',
+                        borderRadius: 12,
+                        background:
+                          o.status === 'cancelled'
+                            ? '#F8FAFC'
+                            : timing.isExpired
+                              ? '#FEF2F2'
+                              : '#F0FDF4',
+                        border: `1px solid ${
+                          o.status === 'cancelled'
+                            ? 'var(--border)'
+                            : timing.isExpired
+                              ? '#FECDD3'
+                              : '#BBF7D0'
+                        }`,
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          flexWrap: 'wrap',
+                          fontSize: 13,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            color:
+                              o.status === 'cancelled'
+                                ? 'var(--text-3)'
+                                : timing.isExpired
+                                  ? '#991B1B'
+                                  : '#166534',
+                          }}
+                        >
+                          Subscription Period:
+                        </span>
+                        <span style={{ fontWeight: 700, color: 'var(--text)' }}>
+                          {formatDateTime(timing.startDate)}
+                        </span>
+                        <span style={{ color: 'var(--muted)', fontWeight: 800 }}>→</span>
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            color:
+                              o.status === 'cancelled'
+                                ? 'var(--text-3)'
+                                : timing.isExpired
+                                  ? '#DC2626'
+                                  : '#16A34A',
+                          }}
+                        >
+                          {formatDateTime(timing.endDate)}
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>
+                          ({o.periodLabel || o.period || '1 month'})
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+                          Subscription end date:
+                        </span>
+                        <strong
+                          style={{
+                            fontSize: 12,
+                            color:
+                              o.status === 'cancelled'
+                                ? 'var(--text-3)'
+                                : timing.isExpired
+                                  ? '#991B1B'
+                                  : '#15803D',
+                          }}
+                        >
+                          {formatDateTime(timing.endDate)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
 
                   <div
                     style={{
@@ -391,7 +543,8 @@ export default function DigitalServicesAdminPage() {
                         <Field label="Email" value={o.buyerEmail || '—'} />
                         <Field label="Period" value={o.periodLabel || o.period || 'monthly'} />
                         <Field label="Amount" value={formatMwk(o.amountMwk)} />
-                        <Field label="Subscribed" value={formatDateTime(o.paidAt || o.createdAt)} />
+                        <Field label="Start date" value={formatDateTime(timing?.startDate)} />
+                        <Field label="End date (linked)" value={formatDateTime(timing?.endDate)} />
                       </>
                     ) : (
                       <>

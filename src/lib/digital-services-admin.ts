@@ -4,6 +4,7 @@ import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
 import { getAdminDb } from '@/lib/firebase-admin'
 import {
   DIGITAL_SERVICE_ORDERS_COLLECTION,
+  computeSubscriptionEndDate,
   type DigitalServiceOrder,
   type DigitalServiceOrderCounts,
 } from '@/lib/digital-services'
@@ -58,6 +59,35 @@ export function parseDigitalServiceOrder(
       ? 'subscription'
       : 'gift_card')
 
+  const paidAt = tsToIso(data.paidAt)
+  const createdAt = tsToIso(data.createdAt)
+  const startDate =
+    tsToIso(
+      data.startDate ??
+        data.startsAt ??
+        data.subscriptionStartDate ??
+        data.start_date,
+    ) ||
+    paidAt ||
+    createdAt
+
+  let endDate = tsToIso(
+    data.endDate ??
+      data.endsAt ??
+      data.subscriptionEndDate ??
+      data.end_date ??
+      data.expiresAt ??
+      data.expiryDate,
+  )
+
+  const period = str(data.period) || (kind === 'subscription' ? 'monthly' : null)
+  const periodLabel =
+    str(data.periodLabel) || (kind === 'subscription' ? '1 month' : null)
+
+  if (!endDate && kind === 'subscription' && startDate) {
+    endDate = computeSubscriptionEndDate(startDate, period, periodLabel)
+  }
+
   return {
     id,
     productKey: str(data.productKey),
@@ -66,9 +96,8 @@ export function parseDigitalServiceOrder(
     brandTag: str(data.brandTag),
     category: str(data.category),
     kind,
-    period: str(data.period) || (kind === 'subscription' ? 'monthly' : null),
-    periodLabel:
-      str(data.periodLabel) || (kind === 'subscription' ? '1 month' : null),
+    period,
+    periodLabel,
     selectedUsd: (() => {
       const n = num(data.selectedUsd)
       return n > 0 ? n : null
@@ -80,9 +109,11 @@ export function parseDigitalServiceOrder(
     buyerName: str(data.buyerName || data.userName) || 'Buyer',
     buyerEmail: str(data.buyerEmail || data.email),
     buyerPhone: str(data.buyerPhone || data.phone),
-    paidAt: tsToIso(data.paidAt),
-    createdAt: tsToIso(data.createdAt),
+    paidAt,
+    createdAt,
     updatedAt: tsToIso(data.updatedAt),
+    startDate,
+    endDate,
     platformFeeCredited: data.platformFeeCredited === true,
     platformFeeTxId: str(data.platformFeeTxId) || null,
   }
@@ -95,14 +126,30 @@ export function buildDigitalOrderCounts(
   let pending = 0
   let subscriptions = 0
   let giftCards = 0
+  let activeSubscriptions = 0
+  let expiredSubscriptions = 0
   let feeCredited = 0
   let feePending = 0
   let revenuePaid = 0
   let revenueCredited = 0
 
+  const now = Date.now()
+
   for (const o of items) {
-    if (o.kind === 'subscription') subscriptions += 1
-    else giftCards += 1
+    const isSub = o.kind === 'subscription'
+    if (isSub) {
+      subscriptions += 1
+      if (o.status !== 'cancelled' && o.status !== 'pending_payment') {
+        const endMs = o.endDate ? new Date(o.endDate).getTime() : 0
+        if (endMs && endMs < now) {
+          expiredSubscriptions += 1
+        } else {
+          activeSubscriptions += 1
+        }
+      }
+    } else {
+      giftCards += 1
+    }
 
     if (o.status === 'pending_payment') pending += 1
     else if (o.status === 'paid' || o.status === 'fulfilled' || o.paidAt) {
@@ -124,6 +171,8 @@ export function buildDigitalOrderCounts(
     pending,
     subscriptions,
     giftCards,
+    activeSubscriptions,
+    expiredSubscriptions,
     feeCredited,
     feePending,
     revenuePaid,
@@ -172,21 +221,51 @@ export async function getDigitalServiceOrder(
 export async function updateDigitalServiceOrderStatus(
   id: string,
   status: 'paid' | 'fulfilled' | 'cancelled' | 'pending_payment',
+  extra?: { startDate?: string | null; endDate?: string | null },
 ): Promise<DigitalServiceOrder> {
   const ref = getAdminDb().collection(DIGITAL_SERVICE_ORDERS_COLLECTION).doc(id.trim())
   const snap = await ref.get()
   if (!snap.exists) throw new Error('Order not found')
 
-  await ref.set(
-    {
-      status,
-      updatedAt: FieldValue.serverTimestamp(),
-      ...(status === 'paid' || status === 'fulfilled'
-        ? { paidAt: FieldValue.serverTimestamp() }
-        : {}),
-    },
-    { merge: true },
-  )
+  const existingData = snap.data() || {}
+  const kind = str(existingData.kind).toLowerCase() || (existingData.period ? 'subscription' : 'gift_card')
+
+  const updates: Record<string, unknown> = {
+    status,
+    updatedAt: FieldValue.serverTimestamp(),
+    ...(status === 'paid' || status === 'fulfilled'
+      ? { paidAt: existingData.paidAt ? existingData.paidAt : FieldValue.serverTimestamp() }
+      : {}),
+  }
+
+  if (extra?.startDate !== undefined) updates.startDate = extra.startDate
+  if (extra?.endDate !== undefined) updates.endDate = extra.endDate
+
+  if (
+    kind === 'subscription' &&
+    (status === 'paid' || status === 'fulfilled') &&
+    !existingData.endDate &&
+    !extra?.endDate
+  ) {
+    const startIso =
+      extra?.startDate ||
+      tsToIso(existingData.startDate) ||
+      tsToIso(existingData.paidAt) ||
+      new Date().toISOString()
+    const linkedEnd = computeSubscriptionEndDate(
+      startIso,
+      str(existingData.period),
+      str(existingData.periodLabel),
+    )
+    if (linkedEnd) {
+      if (!existingData.startDate && !extra?.startDate) {
+        updates.startDate = startIso
+      }
+      updates.endDate = linkedEnd
+    }
+  }
+
+  await ref.set(updates, { merge: true })
 
   const updated = await ref.get()
   return parseDigitalServiceOrder(updated.id, updated.data() || {})

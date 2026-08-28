@@ -35,6 +35,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const body = (await request.json().catch(() => ({}))) as {
       action?: string
       status?: string
+      startDate?: string | null
+      endDate?: string | null
     }
 
     if (body.action === 'credit_platform_fee') {
@@ -61,6 +63,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const item = await updateDigitalServiceOrderStatus(
       id,
       status as 'paid' | 'fulfilled' | 'cancelled' | 'pending_payment',
+      {
+        startDate: body.startDate !== undefined ? body.startDate : undefined,
+        endDate: body.endDate !== undefined ? body.endDate : undefined,
+      },
     )
     return NextResponse.json({ success: true, item })
   } catch (err) {
