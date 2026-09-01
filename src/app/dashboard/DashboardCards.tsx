@@ -6,6 +6,7 @@ import { DASHBOARD_SECTIONS } from '@/lib/dashboard-sections'
 import {
   useCourierPendingBadge,
   useDigitalPaymentsNewBadge,
+  useDriverPendingBadge,
   useHelpCenterUnreadBadge,
   useHomepageAdPaymentsNewBadge,
   useMerchantReportsOpenBadge,
@@ -17,6 +18,7 @@ import { usePanelSession } from './PanelSessionProvider'
 export default function DashboardCards() {
   const unread = useHelpCenterUnreadBadge()
   const courierPending = useCourierPendingBadge()
+  const driversPending = useDriverPendingBadge()
   const ordersPending = useOrdersPendingBadge()
   const newUsers = useNewUsersBadge()
   const reportsOpen = useMerchantReportsOpenBadge()
@@ -36,6 +38,7 @@ export default function DashboardCards() {
       {DASHBOARD_SECTIONS.filter(card => !card.superAdminOnly || isSuperAdmin).map(card => {
         const isHelp = card.id === 'verochat'
         const isCourier = card.id === 'vero-courier'
+        const isDrivers = card.id === 'vero-ride'
         const isOrders = card.id === 'orders'
         const isUsers = card.id === 'users'
         const isReports = card.id === 'merchant-reports'
@@ -45,63 +48,71 @@ export default function DashboardCards() {
           ? unread
           : isCourier
             ? courierPending
-            : isOrders
-              ? ordersPending
-              : isUsers
-                ? newUsers
-                : isReports
-                  ? reportsOpen
-                  : isDigital
-                    ? digitalNew
-                    : isHomepageAds
-                      ? homepageAdNew
-                      : 0
+            : isDrivers
+              ? driversPending
+              : isOrders
+                ? ordersPending
+                : isUsers
+                  ? newUsers
+                  : isReports
+                    ? reportsOpen
+                    : isDigital
+                      ? digitalNew
+                      : isHomepageAds
+                        ? homepageAdNew
+                        : 0
         const showBadge = badgeCount > 0
         const alertLabel = isHelp
           ? `${badgeCount} unread Help Center messages`
           : isCourier
             ? `${badgeCount} pending Vero Courier order${badgeCount === 1 ? '' : 's'}`
-            : isOrders
-              ? `${badgeCount} pending marketplace order${badgeCount === 1 ? '' : 's'}`
-              : isUsers
-                ? `${badgeCount} new user${badgeCount === 1 ? '' : 's'}`
-                : isReports
-                  ? `${badgeCount} open merchant report${badgeCount === 1 ? '' : 's'}`
-                  : isDigital
-                    ? `${badgeCount} new digital service payment${badgeCount === 1 ? '' : 's'}`
-                    : isHomepageAds
-                      ? `${badgeCount} new homepage ad payment${badgeCount === 1 ? '' : 's'}`
-                      : ''
+            : isDrivers
+              ? `${badgeCount} driver verification item${badgeCount === 1 ? '' : 's'}`
+              : isOrders
+                ? `${badgeCount} pending marketplace order${badgeCount === 1 ? '' : 's'}`
+                : isUsers
+                  ? `${badgeCount} new user${badgeCount === 1 ? '' : 's'}`
+                  : isReports
+                    ? `${badgeCount} open merchant report${badgeCount === 1 ? '' : 's'}`
+                    : isDigital
+                      ? `${badgeCount} new digital service payment${badgeCount === 1 ? '' : 's'}`
+                      : isHomepageAds
+                        ? `${badgeCount} new homepage ad payment${badgeCount === 1 ? '' : 's'}`
+                        : ''
         const alertDesc = isHelp
           ? `${badgeCount} new message${badgeCount === 1 ? '' : 's'} waiting`
           : isCourier
             ? `${badgeCount} new order${badgeCount === 1 ? '' : 's'} waiting`
-            : isOrders
-              ? `${badgeCount} order${badgeCount === 1 ? '' : 's'} needing review`
-              : isUsers
-                ? `${badgeCount} new registration${badgeCount === 1 ? '' : 's'}`
-                : isReports
-                  ? `${badgeCount} report${badgeCount === 1 ? '' : 's'} to review`
-                  : isDigital
-                    ? `${badgeCount} payment${badgeCount === 1 ? '' : 's'} just completed`
-                    : isHomepageAds
-                      ? `${badgeCount} advert payment${badgeCount === 1 ? '' : 's'} just completed`
-                      : ''
+            : isDrivers
+              ? `${badgeCount} document${badgeCount === 1 ? '' : 's'} to review`
+              : isOrders
+                ? `${badgeCount} order${badgeCount === 1 ? '' : 's'} needing review`
+                : isUsers
+                  ? `${badgeCount} new registration${badgeCount === 1 ? '' : 's'}`
+                  : isReports
+                    ? `${badgeCount} report${badgeCount === 1 ? '' : 's'} to review`
+                    : isDigital
+                      ? `${badgeCount} payment${badgeCount === 1 ? '' : 's'} just completed`
+                      : isHomepageAds
+                        ? `${badgeCount} advert payment${badgeCount === 1 ? '' : 's'} just completed`
+                        : ''
         const alertCta = isHelp
           ? 'Reply now →'
           : isCourier
             ? 'Review now →'
-            : isOrders
-              ? 'Open orders →'
-              : isUsers
-                ? 'View users →'
-                : isReports
-                  ? 'Review reports →'
-                  : isDigital
-                    ? 'Open digital services →'
-                    : isHomepageAds
-                      ? 'Open homepage ads →'
-                      : ''
+            : isDrivers
+              ? 'Review drivers →'
+              : isOrders
+                ? 'Open orders →'
+                : isUsers
+                  ? 'View users →'
+                  : isReports
+                    ? 'Review reports →'
+                    : isDigital
+                      ? 'Open digital services →'
+                      : isHomepageAds
+                        ? 'Open homepage ads →'
+                        : ''
 
         return (
           <Link

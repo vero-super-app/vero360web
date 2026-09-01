@@ -2,9 +2,32 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { signInWithEmailAndPassword, signOut, type AuthError } from 'firebase/auth'
 import Logo from '@/app/components/landing/Logo'
 import { auth } from '@/lib/firebase'
+
+function firebaseSignInMessage(err: unknown): string {
+  const code =
+    err && typeof err === 'object' && 'code' in err
+      ? String((err as AuthError).code)
+      : ''
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'No account with that email/password yet. If this is a fresh setup, create the first admin at /dashboard/admins first.'
+    case 'auth/invalid-email':
+      return 'Enter a valid email address.'
+    case 'auth/user-disabled':
+      return 'This account is disabled in Firebase.'
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Wait a minute and try again.'
+    case 'auth/operation-not-allowed':
+      return 'Email/password sign-in is disabled in Firebase Console → Authentication → Sign-in method.'
+    default:
+      return 'Invalid email or password, or not an active admin.'
+  }
+}
 
 export default function PanelSignIn() {
   const [email, setEmail] = useState('')
@@ -69,7 +92,7 @@ export default function PanelSignIn() {
       const message =
         err instanceof Error && err.message && !err.message.includes('Firebase')
           ? err.message
-          : 'Invalid email or password, or not an active admin.'
+          : firebaseSignInMessage(err)
       setError(message)
       setLoading(false)
     }
@@ -113,7 +136,11 @@ export default function PanelSignIn() {
             Admin sign in
           </h1>
           <p style={{ fontSize: 15, color: 'var(--text-3)', lineHeight: 1.6 }}>
-            Only admins can sign in.
+            Only admins can sign in. First time locally?{' '}
+            <Link href="/dashboard/admins" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+              Create the first admin
+            </Link>
+            .
           </p>
         </div>
 

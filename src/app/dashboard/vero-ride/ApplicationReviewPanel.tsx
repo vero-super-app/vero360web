@@ -4,6 +4,10 @@ import {
   driverStatusLabel,
   driverStatusTone,
   formatDateOnly,
+  formatDateTime,
+  hasCompleteDriverDocs,
+  hasCompleteVehicleDocs,
+  isDriverAtLeast18,
   taxiStatusLabel,
   type FleetDriver,
   type FleetTaxi,
@@ -125,6 +129,8 @@ export function ApplicationReviewPanel({
   const driverDone = driver.status === 'VERIFIED' && driver.isVerified
   const driverPending = driver.status === 'PENDING_VERIFICATION'
   const driverRejected = driver.status === 'REJECTED'
+  const driverDocsComplete = hasCompleteDriverDocs(driver)
+  const driverAgeOk = isDriverAtLeast18(driver.dateOfBirth)
   const tone = driverStatusTone(driver.status)
 
   return (
@@ -169,6 +175,11 @@ export function ApplicationReviewPanel({
         }}
       >
         <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>1. Driver documents</h3>
+        {driver.submittedAt ? (
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)' }}>
+            Submitted {formatDateTime(driver.submittedAt)}
+          </p>
+        ) : null}
         <div
           style={{
             display: 'grid',
@@ -177,7 +188,15 @@ export function ApplicationReviewPanel({
             marginBottom: 14,
           }}
         >
-          <Field label="Date of birth" value={formatDateOnly(driver.dateOfBirth)} />
+          <Field
+            label="Date of birth"
+            value={formatDateOnly(driver.dateOfBirth)}
+            warn={
+              !isDriverAtLeast18(driver.dateOfBirth)
+                ? 'Driver must be 18 or older'
+                : undefined
+            }
+          />
         </div>
         <div
           style={{
@@ -214,12 +233,24 @@ export function ApplicationReviewPanel({
             Rejection reason: {driver.rejectionReason}
           </div>
         ) : null}
+        {driverPending && !driverDocsComplete ? (
+          <p
+            style={{
+              margin: '0 0 12px',
+              fontSize: 13,
+              color: '#B91C1C',
+              fontWeight: 600,
+            }}
+          >
+            License and national ID photos are required before approval.
+          </p>
+        ) : null}
         {driverPending ? (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <ActionButton
               label="Verify driver"
               tone="accept"
-              disabled={acting}
+              disabled={acting || !driverDocsComplete || !driverAgeOk}
               onClick={onVerifyDriver}
             />
             <ActionButton
@@ -282,6 +313,7 @@ function VehicleBlock({
   onPreview: (url: string) => void
 }) {
   const pending = taxi.status === 'PENDING_REVIEW'
+  const vehicleDocsComplete = hasCompleteVehicleDocs(taxi)
   return (
     <div
       style={{
@@ -339,12 +371,24 @@ function VehicleBlock({
           onPreview={onPreview}
         />
       </div>
+      {pending && !vehicleDocsComplete ? (
+        <p
+          style={{
+            margin: '0 0 12px',
+            fontSize: 13,
+            color: '#B91C1C',
+            fontWeight: 600,
+          }}
+        >
+          Vehicle photo, insurance, and COF documents are required before approval.
+        </p>
+      ) : null}
       {pending ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <ActionButton
             label="Approve vehicle"
             tone="accept"
-            disabled={acting}
+            disabled={acting || !vehicleDocsComplete}
             onClick={onApprove}
           />
           <ActionButton

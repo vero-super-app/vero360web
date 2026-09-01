@@ -37,7 +37,7 @@ export const DASHBOARD_SECTIONS: DashboardSection[] = [
   {
     id: 'vero-ride',
     title: 'Vero Ride',
-    desc: 'Trips, drivers, and ride activity',
+    desc: 'Driver verification, vehicle documents, and fleet review',
     icon: 'car',
     color: '#F97316',
     bg: '#FFF7ED',
@@ -205,6 +205,7 @@ export const DASHBOARD_SECTION_MAP = Object.fromEntries(
 export type DashboardNavBadgeKey =
   | 'help'
   | 'courier'
+  | 'drivers'
   | 'orders'
   | 'users'
   | 'reports'
@@ -232,7 +233,7 @@ export const DASHBOARD_NAV_GROUPS: DashboardNavGroup[] = [
   {
     title: 'Services',
     items: [
-      { href: '/dashboard/vero-ride', label: 'Vero Ride Drivers', icon: 'car' },
+      { href: '/dashboard/vero-ride', label: 'Vero Ride Drivers', icon: 'car', badgeKey: 'drivers' },
       { href: '/dashboard/vero-courier', label: 'Vero Courier', icon: 'truck', badgeKey: 'courier' },
       { href: '/dashboard/food', label: 'Food', icon: 'food' },
       { href: '/dashboard/jobs', label: 'Jobs', icon: 'briefcase' },

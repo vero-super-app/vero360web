@@ -235,6 +235,28 @@ export function isExpired(dateStr: string | null): boolean {
   return day < today
 }
 
+export function hasCompleteDriverDocs(driver: FleetDriver): boolean {
+  return Boolean(driver.licenseImageUrl?.trim() && driver.nationalIdImageUrl?.trim())
+}
+
+export function hasCompleteVehicleDocs(taxi: FleetTaxi): boolean {
+  return Boolean(
+    taxi.imageUrl?.trim() &&
+      taxi.insuranceImageUrl?.trim() &&
+      taxi.cofImageUrl?.trim() &&
+      taxi.model?.trim() &&
+      taxi.licensePlate?.trim(),
+  )
+}
+
+export function isDriverAtLeast18(dateOfBirth: string | null): boolean {
+  if (isMissingDate(dateOfBirth)) return false
+  const dob = new Date(dateOfBirth as string)
+  if (Number.isNaN(dob.getTime())) return false
+  const ageYears = (Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+  return ageYears >= 18
+}
+
 /** Calendar date only (DOB / expiry). Hides backend placeholder dates. */
 export function formatDateOnly(value?: string | null): string {
   if (!value) return '—'
