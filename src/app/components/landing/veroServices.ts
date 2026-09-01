@@ -1,4 +1,5 @@
 import type { VeroIconName } from './icons'
+import { isAppStoreLaunched } from '@/lib/app-launch'
 
 export const exploreServices: { icon: VeroIconName; name: string; desc: string }[] = [
   { icon: 'car', name: 'Vero Ride', desc: 'Cars, SUVs & bikes on demand' },
@@ -9,9 +10,11 @@ export const exploreServices: { icon: VeroIconName; name: string; desc: string }
   { icon: 'bed', name: 'Accommodation', desc: 'Hotels, lodges & short stays' },
 ]
 
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.vero.vero360'
+
 export const appStoreLinks = {
   ios: '#',
-  android: 'https://play.google.com/store/apps/details?id=com.vero.vero360',
+  android: isAppStoreLaunched() ? PLAY_STORE_URL : '#',
 }
 
 export const storeBadgeImages = {

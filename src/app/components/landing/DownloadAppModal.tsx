@@ -2,36 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import {
+  APP_LAUNCH_HEADLINE,
+  APP_LAUNCH_LABEL,
+  getAppLaunchTimeLeft,
+  type AppLaunchTimeLeft,
+} from '@/lib/app-launch'
+import StoreDownloadLinks from './StoreDownloadLinks'
 
 type Props = {
   open: boolean
   onClose: () => void
-}
-
-/** App launch: 1 September 2026, 00:00 local time */
-const LAUNCH_AT = new Date(2026, 8, 1, 0, 0, 0, 0)
-
-type TimeLeft = {
-  days: number
-  hours: number
-  minutes: number
-  seconds: number
-  launched: boolean
-}
-
-function getTimeLeft(now: Date): TimeLeft {
-  const diff = LAUNCH_AT.getTime() - now.getTime()
-  if (diff <= 0) {
-    return { days: 0, hours: 0, minutes: 0, seconds: 0, launched: true }
-  }
-  const totalSeconds = Math.floor(diff / 1000)
-  return {
-    days: Math.floor(totalSeconds / 86400),
-    hours: Math.floor((totalSeconds % 86400) / 3600),
-    minutes: Math.floor((totalSeconds % 3600) / 60),
-    seconds: totalSeconds % 60,
-    launched: false,
-  }
 }
 
 function pad(n: number) {
@@ -39,13 +20,13 @@ function pad(n: number) {
 }
 
 export default function DownloadAppModal({ open, onClose }: Props) {
-  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null)
+  const [timeLeft, setTimeLeft] = useState<AppLaunchTimeLeft | null>(null)
 
   useEffect(() => {
     if (!open) return
-    setTimeLeft(getTimeLeft(new Date()))
+    setTimeLeft(getAppLaunchTimeLeft())
     const id = window.setInterval(() => {
-      setTimeLeft(getTimeLeft(new Date()))
+      setTimeLeft(getAppLaunchTimeLeft())
     }, 1000)
     return () => window.clearInterval(id)
   }, [open])
@@ -62,6 +43,7 @@ export default function DownloadAppModal({ open, onClose }: Props) {
   if (!open) return null
 
   const launched = timeLeft?.launched ?? false
+  const pastDue = timeLeft?.pastDue ?? false
   const units = [
     { label: 'Days', value: timeLeft?.days ?? 0 },
     { label: 'Hours', value: timeLeft?.hours ?? 0 },
@@ -103,74 +85,104 @@ export default function DownloadAppModal({ open, onClose }: Props) {
         </div>
 
         {launched ? (
-          <p style={{ fontSize: 15, color: 'var(--text-3)', marginBottom: 8, lineHeight: 1.6 }}>
-            Vero360 is live. Get the app on the App Store and Google Play.
-          </p>
+          <>
+            <p style={{ fontSize: 15, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.6 }}>
+              Vero360 is live. Get the app on the App Store and Google Play.
+            </p>
+            <StoreDownloadLinks />
+          </>
         ) : (
           <>
             <p style={{ fontSize: 15, color: 'var(--text-3)', marginBottom: 20, lineHeight: 1.6 }}>
-              The Vero360 app is coming soon. We launch on{' '}
-              <strong style={{ color: 'var(--text)' }}>1 September 2026</strong>.
+              The Vero360 app is coming soon. {APP_LAUNCH_HEADLINE}.
+              {pastDue ? (
+                <>
+                  {' '}
+                  We missed our 1 September target and are finishing the last details before release.
+                </>
+              ) : null}
             </p>
 
-            <div
-              role="timer"
-              aria-live="polite"
-              aria-label={
-                timeLeft
-                  ? `Countdown to launch: ${timeLeft.days} days, ${timeLeft.hours} hours, ${timeLeft.minutes} minutes, ${timeLeft.seconds} seconds`
-                  : 'Loading countdown'
-              }
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 10,
-                marginBottom: 20,
-              }}
-            >
-              {units.map(u => (
-                <div
-                  key={u.label}
-                  style={{
-                    textAlign: 'center',
-                    padding: '14px 8px',
-                    borderRadius: 14,
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
-                  <div style={{
-                    fontSize: 26,
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-display)',
-                    color: 'var(--primary)',
-                    letterSpacing: '-0.5px',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {timeLeft ? pad(u.value) : '--'}
+            {!pastDue ? (
+              <div
+                role="timer"
+                aria-live="polite"
+                aria-label={
+                  timeLeft
+                    ? `Countdown to launch: ${timeLeft.days} days, ${timeLeft.hours} hours, ${timeLeft.minutes} minutes, ${timeLeft.seconds} seconds`
+                    : 'Loading countdown'
+                }
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 10,
+                  marginBottom: 20,
+                }}
+              >
+                {units.map(u => (
+                  <div
+                    key={u.label}
+                    style={{
+                      textAlign: 'center',
+                      padding: '14px 8px',
+                      borderRadius: 14,
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{
+                      fontSize: 26,
+                      fontWeight: 800,
+                      fontFamily: 'var(--font-display)',
+                      color: 'var(--primary)',
+                      letterSpacing: '-0.5px',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      {timeLeft ? pad(u.value) : '--'}
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'var(--text-3)',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.6,
+                      marginTop: 4,
+                    }}>
+                      {u.label}
+                    </div>
                   </div>
-                  <div style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: 'var(--text-3)',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.6,
-                    marginTop: 4,
-                  }}>
-                    {u.label}
-                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  marginBottom: 20,
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  background: '#FFF7ED',
+                  border: '1px solid #FED7AA',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#C2410C' }}>
+                  {APP_LAUNCH_LABEL}
                 </div>
-              ))}
-            </div>
+                <div style={{ fontSize: 13, color: '#9A3412', marginTop: 4 }}>
+                  Downloads stay locked until we go live.
+                </div>
+              </div>
+            )}
+
+            <StoreDownloadLinks locked />
 
             <p style={{
               fontSize: 13,
               color: 'var(--text-3)',
               lineHeight: 1.6,
               textAlign: 'center',
-              margin: 0,
+              margin: '16px 0 0',
             }}>
-              Stay tuned — App Store &amp; Google Play links will appear here at launch.
+              App Store &amp; Google Play links unlock here when we launch.
             </p>
           </>
         )}

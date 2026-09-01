@@ -154,7 +154,7 @@ export default function HeroSection() {
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24">
                   <path d="M12 3v12M7 10l5 5 5-5M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                Download app
+                Coming soon
               </button>
             </div>
 

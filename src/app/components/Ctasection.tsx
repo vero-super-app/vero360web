@@ -23,7 +23,7 @@ export default function CTASection() {
               border: '1px solid rgba(255,255,255,0.2)',
             }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
-              <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: 500 }}>Launching September 2026</span>
+              <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: 500 }}>Launching later this September</span>
             </div>
 
             <h2 style={{

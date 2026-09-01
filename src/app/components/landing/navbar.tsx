@@ -173,7 +173,7 @@ export default function Navbar() {
                 boxShadow: scrolled ? 'var(--shadow-primary)' : '0 2px 8px rgba(255,255,255,0.3)',
                 transition: 'all 0.2s',
               }}
-            >Download app</button>
+            >Coming soon</button>
           </div>
 
           <button
@@ -245,7 +245,7 @@ export default function Navbar() {
                 background: 'var(--primary)', borderRadius: 10,
                 color: '#fff', fontWeight: 600, fontSize: 15,
               }}
-            >Download app</button>
+            >Coming soon</button>
           </div>
         </div>
       )}
