@@ -1,6 +1,10 @@
 'use client'
 
 import { useState, type CSSProperties, type FocusEvent, type FormEvent } from 'react'
+import { VeroIcon } from './icons'
+
+const CONTACT_EMAIL = 'info@vero360.app'
+const CONTACT_LOCATION = 'Lilongwe Area 14, Malawi'
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -76,6 +80,52 @@ export default function ContactSection() {
           <p style={{ fontSize: 17, color: 'var(--text-3)', lineHeight: 1.7 }}>
             Have a question or want to partner with Vero360? Fill out the form below and we&apos;ll get back to you.
           </p>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: 16,
+              marginTop: 28,
+            }}
+          >
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '12px 18px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: '#fff',
+                color: 'var(--text-2)',
+                fontSize: 14,
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              <VeroIcon name="mail" size={18} color="var(--primary)" />
+              {CONTACT_EMAIL}
+            </a>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '12px 18px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: '#fff',
+                color: 'var(--text-2)',
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              <VeroIcon name="map-pin" size={18} color="var(--primary)" />
+              {CONTACT_LOCATION}
+            </div>
+          </div>
         </div>
 
         <form

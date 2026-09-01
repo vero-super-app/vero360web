@@ -88,7 +88,7 @@ function openHelpCenter() {
                 </div>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
                   <VeroIcon name="map-pin" size={16} color="rgba(255,255,255,0.45)" />
-                  <span>Lilongwe, Malawi</span>
+                  <span>Lilongwe Area 14, Malawi</span>
                 </div>
               </div>
             </div>
