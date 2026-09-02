@@ -9,7 +9,11 @@ export async function GET(request: Request, ctx: Ctx) {
   try {
     await requirePanelAdmin(request)
     const { id } = await ctx.params
-    const { res, body, error } = await nestAdminFetch(['admin', 'drivers', id])
+    const { res, body, error } = await nestAdminFetch(
+      ['admin', 'drivers', id],
+      undefined,
+      request,
+    )
     if (!res.ok) {
       return NextResponse.json({ error }, { status: res.status })
     }

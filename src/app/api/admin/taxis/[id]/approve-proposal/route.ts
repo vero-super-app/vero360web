@@ -12,6 +12,7 @@ export async function POST(request: Request, ctx: Ctx) {
     const { res, body, error } = await nestAdminFetch(
       ['admin', 'taxis', id, 'approve-proposal'],
       { method: 'POST' },
+      request,
     )
     if (!res.ok) {
       return NextResponse.json({ error }, { status: res.status })

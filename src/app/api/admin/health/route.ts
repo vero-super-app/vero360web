@@ -31,14 +31,17 @@ export async function GET(request: Request) {
   const probe = new URL(request.url).searchParams.get('probe') === '1'
   if (!probe) {
     const ready =
-      flags.hasClientEmail && (flags.hasPrivateKeyBase64 || flags.hasPrivateKey)
+      flags.hasServiceAccountPath ||
+      (flags.hasClientEmail && (flags.hasPrivateKeyBase64 || flags.hasPrivateKey)) ||
+      flags.hasServiceAccountJson ||
+      flags.hasServiceAccountBase64
     return NextResponse.json({
       success: ready,
       stage: 'env',
       firebaseAdmin: flags,
       hint: ready
         ? 'Env looks set. Check /api/admin/health?probe=1 next.'
-        : 'On Netlify set FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY_BASE64 from .env.netlify. Remove FIREBASE_SERVICE_ACCOUNT_PATH and old FIREBASE_PRIVATE_KEY.',
+        : 'Set FIREBASE_SERVICE_ACCOUNT_PATH (local) or FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY_BASE64 (Netlify).',
     })
   }
 

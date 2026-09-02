@@ -18,10 +18,11 @@ export async function GET(request: Request) {
   const denied = await denyUnlessPanelAdmin(request)
   if (denied) return denied
   try {
-    const { res, body, error } = await nestAdminFetch([
-      'admin',
-      'drivers?skip=0&take=200',
-    ])
+    const { res, body, error } = await nestAdminFetch(
+      ['admin', 'drivers?skip=0&take=200'],
+      undefined,
+      request,
+    )
 
     if (!res.ok) {
       return NextResponse.json({ error }, { status: res.status })

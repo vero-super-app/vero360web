@@ -27,6 +27,7 @@ export async function POST(request: Request, ctx: Ctx) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reason.trim() }),
       },
+      request,
     )
     if (!res.ok) {
       return NextResponse.json({ error }, { status: res.status })

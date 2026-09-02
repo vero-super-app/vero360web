@@ -106,6 +106,27 @@ function initFromServiceAccount(sa: ServiceAccount, projectId: string): App {
   })
 }
 
+/** Local dev only — dynamic fs import avoids Netlify bundler tracing when unset. */
+function loadServiceAccountFromPath(): ServiceAccount | null {
+  const pathEnv = pickEnv('FIREBASE_SERVICE_ACCOUNT_PATH')
+  if (!pathEnv) return null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { readFileSync } = require('node:fs') as typeof import('node:fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { resolve } = require('node:path') as typeof import('node:path')
+    const abs = resolve(process.cwd(), pathEnv)
+    const raw = readFileSync(abs, 'utf8')
+    return parseServiceAccountEnv(raw)
+  } catch (err) {
+    throw new Error(
+      `FIREBASE_SERVICE_ACCOUNT_PATH (${pathEnv}): ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    )
+  }
+}
+
 function initAdminApp(): App {
   const existing = getApps()[0]
   if (existing) return existing
@@ -114,6 +135,24 @@ function initAdminApp(): App {
   const projectId =
     pickEnv('FIREBASE_PROJECT_ID', 'NEXT_PUBLIC_FIREBASE_PROJECT_ID') ||
     'vero360app-ca423'
+
+  const fromPath = (() => {
+    try {
+      return loadServiceAccountFromPath()
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err))
+      return null
+    }
+  })()
+  if (fromPath) {
+    try {
+      return initFromServiceAccount(fromPath, String(fromPath.projectId || projectId))
+    } catch (err) {
+      errors.push(
+        `FIREBASE_SERVICE_ACCOUNT_PATH: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
+  }
 
   const clientEmail = pickEnv('FIREBASE_CLIENT_EMAIL')
   const privateKey = resolvePrivateKey()
@@ -149,7 +188,7 @@ function initAdminApp(): App {
   }
 
   throw new Error(
-    `Firebase Admin is not configured. Set FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY_BASE64 on Netlify. ${
+    `Firebase Admin is not configured. Set FIREBASE_SERVICE_ACCOUNT_PATH (local), FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY_BASE64 (Netlify), or FIREBASE_SERVICE_ACCOUNT_JSON. ${
       errors.length ? errors.join(' | ') : ''
     }`.trim(),
   )
@@ -174,6 +213,7 @@ export function getAdminStorage() {
 /** Non-secret status for debugging Netlify env. */
 export function getFirebaseAdminStatus() {
   const flags = {
+    hasServiceAccountPath: Boolean(pickEnv('FIREBASE_SERVICE_ACCOUNT_PATH')),
     hasClientEmail: Boolean(pickEnv('FIREBASE_CLIENT_EMAIL')),
     hasPrivateKey: Boolean(pickEnv('FIREBASE_PRIVATE_KEY')),
     hasPrivateKeyBase64: Boolean(pickEnv('FIREBASE_PRIVATE_KEY_BASE64')),

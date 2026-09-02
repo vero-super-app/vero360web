@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev",
+    "create-admin": "node scripts/create-panel-admin-curl.cjs",
+    "create-admin:firebase-admin": "node --dns-result-order=ipv4first scripts/create-panel-admin.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

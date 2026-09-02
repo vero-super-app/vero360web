@@ -12,10 +12,11 @@ export async function GET(request: Request) {
 
     const qs = new URLSearchParams({ skip, take })
 
-    const { res, body, error } = await nestAdminFetch([
-      'admin',
-      `drivers?${qs.toString()}`,
-    ])
+    const { res, body, error } = await nestAdminFetch(
+      ['admin', `drivers?${qs.toString()}`],
+      undefined,
+      request,
+    )
 
     if (!res.ok) {
       return NextResponse.json({ error }, { status: res.status })

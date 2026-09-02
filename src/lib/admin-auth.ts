@@ -195,7 +195,10 @@ export async function requireSuperAdminOrBootstrap(
   }
 
   if (!actor) {
-    throw new AuthError(401, 'Sign in as a super admin to manage admins.')
+    throw new AuthError(
+      401,
+      'Admins already exist in Firestore — unauthenticated bootstrap is disabled. Sign in as a super admin and send Authorization: Bearer <firebase-id-token>, or run: node scripts/create-panel-admin.mjs <email> <password>',
+    )
   }
   throw new AuthError(403, 'Only super admins can manage admin accounts.')
 }
