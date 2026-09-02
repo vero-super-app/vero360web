@@ -7,6 +7,7 @@ import {
   useCourierPendingBadge,
   useDigitalPaymentsNewBadge,
   useDriverPendingBadge,
+  useRideIssuesBadge,
   useHelpCenterUnreadBadge,
   useHomepageAdPaymentsNewBadge,
   useMerchantReportsOpenBadge,
@@ -19,6 +20,7 @@ export default function DashboardCards() {
   const unread = useHelpCenterUnreadBadge()
   const courierPending = useCourierPendingBadge()
   const driversPending = useDriverPendingBadge()
+  const rideIssues = useRideIssuesBadge()
   const ordersPending = useOrdersPendingBadge()
   const newUsers = useNewUsersBadge()
   const reportsOpen = useMerchantReportsOpenBadge()
@@ -49,7 +51,7 @@ export default function DashboardCards() {
           : isCourier
             ? courierPending
             : isDrivers
-              ? driversPending
+              ? driversPending + rideIssues
               : isOrders
                 ? ordersPending
                 : isUsers
@@ -67,7 +69,7 @@ export default function DashboardCards() {
           : isCourier
             ? `${badgeCount} pending Vero Courier order${badgeCount === 1 ? '' : 's'}`
             : isDrivers
-              ? `${badgeCount} driver verification item${badgeCount === 1 ? '' : 's'}`
+              ? `${driversPending + rideIssues} Vero Ride item${driversPending + rideIssues === 1 ? '' : 's'} need attention`
               : isOrders
                 ? `${badgeCount} pending marketplace order${badgeCount === 1 ? '' : 's'}`
                 : isUsers

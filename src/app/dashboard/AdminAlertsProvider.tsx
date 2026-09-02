@@ -3,6 +3,7 @@
 import { createContext, useContext } from 'react'
 import { useCourierAlerts, type CourierAlertState } from '@/lib/courier-alerts'
 import { useDriverAlerts, type DriverAlertState } from '@/lib/driver-alerts'
+import { useRideAlerts, type RideAlertState } from '@/lib/ride-alerts'
 import { useHelpCenterUnread } from '@/lib/help-center-alerts'
 import { useMerchantReportAlerts, type MerchantReportAlertState } from '@/lib/merchant-report-alerts'
 import { useOrderAlerts, type OrderAlertState } from '@/lib/order-alerts'
@@ -12,6 +13,7 @@ import { useUserAlerts, type UserAlertState } from '@/lib/user-alerts'
 type AdminAlertsContextValue = {
   courier: CourierAlertState
   drivers: DriverAlertState
+  rides: RideAlertState
   orders: OrderAlertState
   users: UserAlertState
   merchantReports: MerchantReportAlertState
@@ -24,6 +26,7 @@ const AdminAlertsContext = createContext<AdminAlertsContextValue | null>(null)
 export function AdminAlertsProvider({ children }: { children: React.ReactNode }) {
   const courier = useCourierAlerts()
   const drivers = useDriverAlerts()
+  const rides = useRideAlerts()
   const orders = useOrderAlerts()
   const users = useUserAlerts()
   const merchantReports = useMerchantReportAlerts()
@@ -31,7 +34,7 @@ export function AdminAlertsProvider({ children }: { children: React.ReactNode })
   const helpUnread = useHelpCenterUnread()
   return (
     <AdminAlertsContext.Provider
-      value={{ courier, drivers, orders, users, merchantReports, payments, helpUnread }}
+      value={{ courier, drivers, rides, orders, users, merchantReports, payments, helpUnread }}
     >
       {children}
     </AdminAlertsContext.Provider>
@@ -55,6 +58,11 @@ export function useCourierPendingBadge() {
 export function useDriverPendingBadge() {
   const ctx = useContext(AdminAlertsContext)
   return ctx?.drivers.pending ?? 0
+}
+
+export function useRideIssuesBadge() {
+  const ctx = useContext(AdminAlertsContext)
+  return ctx?.rides.issues ?? 0
 }
 
 export function useOrdersPendingBadge() {

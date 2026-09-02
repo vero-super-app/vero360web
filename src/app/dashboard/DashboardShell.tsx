@@ -18,6 +18,14 @@ import {
 
 function isActivePath(pathname: string, href: string) {
   if (href === '/dashboard') return pathname === '/dashboard'
+  if (href === '/dashboard/vero-ride/trips') {
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
+  if (href === '/dashboard/vero-ride') {
+    if (pathname === '/dashboard/vero-ride') return true
+    if (pathname.startsWith('/dashboard/vero-ride/trips')) return false
+    return pathname.startsWith('/dashboard/vero-ride/')
+  }
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
@@ -87,6 +95,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const {
     courier: { pending: courierPending, toast: courierToast, clearToast: clearCourierToast },
     drivers: { pending: driversPending, toast: driversToast, clearToast: clearDriversToast },
+    rides: { issues: rideIssues, toast: ridesToast, clearToast: clearRidesToast },
     orders: { pending: ordersPending, toast: ordersToast, clearToast: clearOrdersToast },
     users: { newCount: newUsers, toast: usersToast, clearToast: clearUsersToast },
     merchantReports: {
@@ -121,6 +130,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     const timer = window.setTimeout(() => clearDriversToast(), 8000)
     return () => window.clearTimeout(timer)
   }, [driversToast, clearDriversToast])
+
+  useEffect(() => {
+    if (!ridesToast) return
+    const timer = window.setTimeout(() => clearRidesToast(), 8000)
+    return () => window.clearTimeout(timer)
+  }, [ridesToast, clearRidesToast])
 
   useEffect(() => {
     if (!ordersToast) return
@@ -360,6 +375,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                           ? courierPending
                           : item.badgeKey === 'drivers'
                             ? driversPending
+                            : item.badgeKey === 'rides'
+                              ? rideIssues
                             : item.badgeKey === 'orders'
                               ? ordersPending
                               : item.badgeKey === 'users'
@@ -534,6 +551,61 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
                   <button
                     type="button"
                     onClick={clearDriversToast}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      border: '1px solid #FED7AA',
+                      background: '#fff',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#9A3412',
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </span>
+              </div>
+            )}
+            {ridesToast && (
+              <div
+                role="status"
+                style={{
+                  marginBottom: 16,
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: '#FFF7ED',
+                  border: '1px solid #FED7AA',
+                  color: '#9A3412',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  boxShadow: '0 8px 24px rgba(249,115,22,0.16)',
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <VeroIcon name="car" size={20} strokeWidth={2.35} />
+                  {ridesToast}
+                </span>
+                <span style={{ display: 'inline-flex', gap: 8, flexShrink: 0 }}>
+                  <Link
+                    href="/dashboard/vero-ride/trips"
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 8,
+                      background: '#F97316',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    View trips
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={clearRidesToast}
                     style={{
                       padding: '6px 10px',
                       borderRadius: 8,

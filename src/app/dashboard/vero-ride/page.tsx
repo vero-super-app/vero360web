@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   driverStatusLabel,
   driverStatusTone,
@@ -106,7 +106,26 @@ export default function VeroRideDriversPage() {
         sectionId="vero-ride"
         title="Vero Ride — Drivers"
         description="Review driver identity and vehicle documents before they go online."
-        actions={<DashboardRefreshButton onClick={load} disabled={loading} />}
+        actions={
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <Link
+              href="/dashboard/vero-ride/trips"
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--border)',
+                background: '#fff',
+                color: 'var(--text-2)',
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              Trip monitor
+            </Link>
+            <DashboardRefreshButton onClick={load} disabled={loading} />
+          </div>
+        }
       />
 
       <div
