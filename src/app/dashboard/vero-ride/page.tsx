@@ -104,7 +104,7 @@ export default function VeroRideDriversPage() {
 
       <DashboardPageHeader
         sectionId="vero-ride"
-        title="Vero Ride — Drivers"
+        title="Vero Ride, Drivers"
         description="Review driver identity and vehicle documents before they go online."
         actions={
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
