@@ -3,6 +3,7 @@
 import { adminFetch } from '@/lib/panel-client-auth'
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useConfirmDelete } from '../ConfirmDialog'
+import type { PrepaidForgeProductConfig } from '@/lib/digital-services-prepaidforge'
 
 type DigitalProductPriceConfig = {
   key: string
@@ -22,6 +23,7 @@ type DigitalProductPriceConfig = {
   planBadge?: string
   featureLines?: string[]
   recommended?: boolean
+  prepaidForge?: PrepaidForgeProductConfig | null
 }
 
 type DigitalServicesConfig = {
@@ -52,6 +54,19 @@ function linesFromText(raw: string | string[] | undefined): string[] {
 
 function isHubProduct(p: { isHub?: boolean; key: string }): boolean {
   return p.isHub === true || p.key === 'chatgpt' || p.key === 'netflix'
+}
+
+function withPrepaidForge(
+  p: DraftProduct,
+  patch: Partial<PrepaidForgeProductConfig>,
+): PrepaidForgeProductConfig {
+  return {
+    enabled: patch.enabled ?? p.prepaidForge?.enabled ?? false,
+    region: patch.region ?? p.prepaidForge?.region ?? '',
+    skuByUsd: patch.skuByUsd ?? p.prepaidForge?.skuByUsd ?? {},
+    preferredCodeType:
+      patch.preferredCodeType ?? p.prepaidForge?.preferredCodeType ?? 'TEXT',
+  }
 }
 
 function fromDraft(p: DraftProduct): DigitalProductPriceConfig {
@@ -90,6 +105,15 @@ function fromDraft(p: DraftProduct): DigitalProductPriceConfig {
     planBadge: (p.planBadge || '').trim() || undefined,
     featureLines: linesFromText(p.featureLines),
     recommended: p.recommended === true,
+    prepaidForge: p.prepaidForge
+      ? {
+          enabled: p.prepaidForge.enabled === true,
+          region: (p.prepaidForge.region || '').trim(),
+          skuByUsd: p.prepaidForge.skuByUsd || {},
+          preferredCodeType:
+            p.prepaidForge.preferredCodeType === 'SCAN' ? 'SCAN' : 'TEXT',
+        }
+      : null,
   }
 }
 
@@ -146,6 +170,23 @@ export function DigitalServicesPricingPanel() {
   const [newRate, setNewRate] = useState(4700)
   const [newMaxOther, setNewMaxOther] = useState(1000)
   const [newImageUrl, setNewImageUrl] = useState('')
+  const [pfLoading, setPfLoading] = useState(false)
+  const [pfStatus, setPfStatus] = useState<{
+    enabled: boolean
+    configured: boolean
+    error: string
+    minBalanceEur?: number
+  }>({ enabled: false, configured: false, error: '' })
+  const [pfCatalog, setPfCatalog] = useState<
+    Array<{ sku: string; name: string; brand: string | null; countries: string[] }>
+  >([])
+  const [pfBalance, setPfBalance] = useState<{
+    amount: number
+    currency?: string
+  } | null>(null)
+  const [pfStocks, setPfStocks] = useState<
+    Record<string, { quantity: number; purchasePrice: number; type: string }>
+  >({})
 
   const [subName, setSubName] = useState('')
   const [subImageUrl, setSubImageUrl] = useState('')
@@ -183,9 +224,97 @@ export function DigitalServicesPricingPanel() {
     }
   }, [])
 
+  const loadPrepaidForge = useCallback(async () => {
+    setPfLoading(true)
+    try {
+      const [prodRes, balRes] = await Promise.all([
+        adminFetch('/api/admin/digital-services/prepaidforge?view=products', {
+          cache: 'no-store',
+        }),
+        adminFetch('/api/admin/digital-services/prepaidforge?view=balance', {
+          cache: 'no-store',
+        }),
+      ])
+      const data = await prodRes.json()
+      const bal = await balRes.json().catch(() => ({}))
+      setPfStatus({
+        enabled: data.enabled === true,
+        configured: data.configured === true,
+        error: data.error || '',
+        minBalanceEur: data.minBalanceEur,
+      })
+      setPfCatalog(Array.isArray(data.products) ? data.products : [])
+      const amount = Number(bal?.balance?.amount)
+      setPfBalance(
+        Number.isFinite(amount)
+          ? { amount, currency: bal?.balance?.currency || 'EUR' }
+          : null,
+      )
+    } catch (err) {
+      setPfStatus({
+        enabled: false,
+        configured: false,
+        error: err instanceof Error ? err.message : 'Could not reach PrepaidForge',
+      })
+      setPfCatalog([])
+      setPfBalance(null)
+    } finally {
+      setPfLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     void load()
-  }, [load])
+    void loadPrepaidForge()
+  }, [load, loadPrepaidForge])
+
+  useEffect(() => {
+    const skus = Array.from(
+      new Set(
+        products.flatMap((p) =>
+          Object.values(p.prepaidForge?.skuByUsd || {})
+            .map((s) => String(s || '').trim())
+            .filter(Boolean),
+        ),
+      ),
+    )
+    if (!skus.length || !pfStatus.enabled || !pfStatus.configured) {
+      setPfStocks({})
+      return
+    }
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await adminFetch(
+            `/api/admin/digital-services/prepaidforge?view=stocks&skus=${encodeURIComponent(skus.join(','))}`,
+            { cache: 'no-store' },
+          )
+          const data = await res.json()
+          const next: Record<
+            string,
+            { quantity: number; purchasePrice: number; type: string }
+          > = {}
+          for (const raw of Array.isArray(data.stocks) ? data.stocks : []) {
+            const sku = String(raw.product || '').trim()
+            if (!sku) continue
+            const type = String(raw.type || '').toUpperCase()
+            const prev = next[sku]
+            if (!prev || type === 'TEXT') {
+              next[sku] = {
+                quantity: Number(raw.quantity),
+                purchasePrice: Number(raw.purchasePrice),
+                type,
+              }
+            }
+          }
+          setPfStocks(next)
+        } catch {
+          setPfStocks({})
+        }
+      })()
+    }, 500)
+    return () => window.clearTimeout(timer)
+  }, [products, pfStatus.enabled, pfStatus.configured])
 
   const save = async (overrideProducts?: DraftProduct[]) => {
     setSaving(true)
@@ -1457,6 +1586,52 @@ export function DigitalServicesPricingPanel() {
           </div>
 
           <h3 style={sectionTitle}>Gift cards & gaming (USD amounts)</h3>
+          <div
+            style={{
+              margin: '0 0 14px',
+              padding: '12px 14px',
+              borderRadius: 12,
+              background: '#FFF7ED',
+              border: '1px solid #FED7AA',
+              fontSize: 13,
+              color: '#9A3412',
+              display: 'grid',
+              gap: 8,
+            }}
+          >
+            <strong>PrepaidForge auto-fulfill</strong>
+            <span>
+              {pfStatus.enabled
+                ? pfStatus.configured
+                  ? `Backend is on. Map exact USD amounts to a live SKU; only new stamped orders auto-buy a PIN. Historical paid orders stay manual.`
+                  : `PREPAIDFORGE_ENABLED is on but email/password are missing on vero-backend.`
+                : `Off until PREPAIDFORGE_ENABLED=true on vero-backend. Checkout, PawaPay, and admin Send details stay manual.`}
+            </span>
+            {pfBalance ? (
+              <span>
+                EUR float: {pfBalance.amount} {pfBalance.currency || 'EUR'}
+                {pfStatus.minBalanceEur
+                  ? ` · auto-buy pauses below ${pfStatus.minBalanceEur}`
+                  : ''}
+              </span>
+            ) : null}
+            <ol style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+              <li>KYC at app.prepaidforge.com</li>
+              <li>Deposit EUR working capital</li>
+              <li>Whitelist the vero-backend public IP</li>
+              <li>Reload this catalog and map one gift/gaming SKU at a time</li>
+              <li>Set PREPAIDFORGE_ENABLED=true only after a test order</li>
+            </ol>
+            {pfStatus.error ? <span>{pfStatus.error}</span> : null}
+            <button
+              type="button"
+              onClick={() => void loadPrepaidForge()}
+              disabled={pfLoading}
+              style={ghostBtn}
+            >
+              {pfLoading ? 'Loading catalog…' : `Reload catalog (${pfCatalog.length} SKUs)`}
+            </button>
+          </div>
           <div style={{ display: 'grid', gap: 10 }}>
             {gifts.map((p) => (
               <article
@@ -1507,36 +1682,185 @@ export function DigitalServicesPricingPanel() {
                     />
                   </label>
                 </div>
-                <div style={rowStyle}>
-                  <label style={fieldLabel}>
-                    Max other amount (USD)
+                {!(
+                  p.prepaidForge?.enabled &&
+                  Object.keys(p.prepaidForge.skuByUsd || {}).length
+                ) ? (
+                  <div style={rowStyle}>
+                    <label style={fieldLabel}>
+                      Max other amount (USD)
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.maxOtherAmount ?? ''}
+                        placeholder="e.g. 500"
+                        onChange={(e) =>
+                          updateProduct(p.key, {
+                            maxOtherAmount:
+                              e.target.value === ''
+                                ? null
+                                : Number(e.target.value) || 0,
+                          })
+                        }
+                        style={inputStyle}
+                      />
+                    </label>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: 12.5,
+                        color: '#6B7280',
+                        alignSelf: 'end',
+                        paddingBottom: 10,
+                      }}
+                    >
+                      Caps the app “other amount” field for this card only.
+                    </p>
+                  </div>
+                ) : (
+                  <p style={{ margin: '10px 0 0', fontSize: 12.5, color: '#6B7280' }}>
+                    Custom “other amount” is hidden on app and web while PrepaidForge is mapped.
+                  </p>
+                )}
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    borderRadius: 12,
+                    background: '#F8FAFC',
+                    border: '1px solid #E5E7EB',
+                    display: 'grid',
+                    gap: 10,
+                  }}
+                >
+                  <label style={checkLabel}>
                     <input
-                      type="number"
-                      min={1}
-                      value={p.maxOtherAmount ?? ''}
-                      placeholder="e.g. 500"
+                      type="checkbox"
+                      checked={p.prepaidForge?.enabled === true}
                       onChange={(e) =>
                         updateProduct(p.key, {
-                          maxOtherAmount:
-                            e.target.value === ''
-                              ? null
-                              : Number(e.target.value) || 0,
+                          prepaidForge: withPrepaidForge(p, {
+                            enabled: e.target.checked,
+                          }),
                         })
                       }
-                      style={inputStyle}
                     />
+                    Auto-fulfill via PrepaidForge
                   </label>
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 12.5,
-                      color: '#6B7280',
-                      alignSelf: 'end',
-                      paddingBottom: 10,
-                    }}
-                  >
-                    Caps the app “other amount” field for this card only.
-                  </p>
+                  <div style={rowStyle}>
+                    <label style={fieldLabel}>
+                      Redeem region (shown to customers)
+                      <input
+                        value={p.prepaidForge?.region || ''}
+                        placeholder="US"
+                        onChange={(e) =>
+                          updateProduct(p.key, {
+                            prepaidForge: withPrepaidForge(p, {
+                              region: e.target.value,
+                            }),
+                          })
+                        }
+                        style={inputStyle}
+                      />
+                    </label>
+                    <label style={fieldLabel}>
+                      Code type
+                      <select
+                        value={p.prepaidForge?.preferredCodeType || 'TEXT'}
+                        onChange={(e) =>
+                          updateProduct(p.key, {
+                            prepaidForge: withPrepaidForge(p, {
+                              preferredCodeType:
+                                e.target.value === 'SCAN' ? 'SCAN' : 'TEXT',
+                            }),
+                          })
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="TEXT">TEXT (PIN)</option>
+                        <option value="SCAN">SCAN (image)</option>
+                      </select>
+                    </label>
+                  </div>
+                  {(p.usdAmountsText || '')
+                    .split(/[,\s]+/)
+                    .map((x) => Number(x.trim()))
+                    .filter((x) => Number.isFinite(x) && x > 0)
+                    .map((usd) => {
+                      const key = String(usd)
+                      const sku = p.prepaidForge?.skuByUsd?.[key] || ''
+                      const stock = sku ? pfStocks[sku] : undefined
+                      const soldOut = stock?.quantity === 0
+                      const stockHint = !sku
+                        ? ''
+                        : !stock
+                          ? pfStatus.enabled && pfStatus.configured
+                            ? 'No live stock yet'
+                            : ''
+                          : soldOut
+                            ? 'Sold out — skip this denomination until restocked'
+                            : `${stock.quantity < 0 ? 'Orderable' : `${stock.quantity} in stock`}${
+                                Number.isFinite(stock.purchasePrice)
+                                  ? ` · wholesale €${stock.purchasePrice}`
+                                  : ''
+                              }${stock.type ? ` · ${stock.type}` : ''}`
+                      return (
+                        <label key={usd} style={fieldLabel}>
+                          SKU for ${usd}
+                          {soldOut ? ' (sold out)' : ''}
+                          <input
+                            list={`pf-skus-${p.key}`}
+                            value={sku}
+                            placeholder="e.g. Google-Play-10-USD"
+                            onChange={(e) =>
+                              updateProduct(p.key, {
+                                prepaidForge: withPrepaidForge(p, {
+                                  skuByUsd: {
+                                    ...(p.prepaidForge?.skuByUsd || {}),
+                                    [key]: e.target.value.trim(),
+                                  },
+                                }),
+                              })
+                            }
+                            style={{
+                              ...inputStyle,
+                              opacity: soldOut ? 0.65 : 1,
+                              border: soldOut
+                                ? '1px solid #FECACA'
+                                : inputStyle.border,
+                            }}
+                          />
+                          {stockHint ? (
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: soldOut ? '#991B1B' : '#6B7280',
+                              }}
+                            >
+                              {stockHint}
+                            </span>
+                          ) : null}
+                        </label>
+                      )
+                    })}
+                  <datalist id={`pf-skus-${p.key}`}>
+                    {pfCatalog
+                      .filter((item) => {
+                        const blob = `${item.sku} ${item.name} ${item.brand || ''}`.toLowerCase()
+                        const name = (p.name || '').toLowerCase()
+                        return !name || blob.includes(name.split(' ')[0] || '')
+                      })
+                      .slice(0, 40)
+                      .map((item) => (
+                        <option key={item.sku} value={item.sku}>
+                          {item.name}
+                          {item.countries?.length
+                            ? ` · ${item.countries.join(',').toUpperCase()}`
+                            : ''}
+                        </option>
+                      ))}
+                  </datalist>
                 </div>
               </article>
             ))}

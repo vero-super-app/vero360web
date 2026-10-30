@@ -52,6 +52,11 @@ export type DigitalServiceOrder = {
     sentAt: string | null
     sentVia: string[]
   } | null
+  fulfillmentMode?: string | null
+  fulfillmentProvider?: string | null
+  fulfillmentError?: string | null
+  prepaidForgeSku?: string | null
+  prepaidForgeRegion?: string | null
 }
 
 export type DigitalServiceOrderCounts = {

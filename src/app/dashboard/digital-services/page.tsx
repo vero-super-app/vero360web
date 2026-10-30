@@ -578,7 +578,22 @@ export default function DigitalServicesAdminPage() {
                         Fee pending
                       </span>
                     ) : null}
+                    {o.fulfillmentMode === 'auto' && !o.fulfillment ? (
+                      <span style={{ ...badge, background: '#EFF6FF', color: '#1D4ED8' }}>
+                        Auto PIN
+                      </span>
+                    ) : null}
+                    {o.fulfillmentError ? (
+                      <span style={{ ...badge, background: '#FEF2F2', color: '#991B1B' }}>
+                        Auto-fulfill error
+                      </span>
+                    ) : null}
                   </div>
+                  {o.fulfillmentError ? (
+                    <p style={{ margin: '10px 0 0', fontSize: 13, color: '#991B1B' }}>
+                      PrepaidForge: {o.fulfillmentError} Send details by hand if needed.
+                    </p>
+                  ) : null}
 
                   {/* Linked Subscription Period Banner */}
                   {isSub && timing && (

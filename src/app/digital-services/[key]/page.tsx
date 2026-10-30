@@ -11,6 +11,7 @@ import {
   digitalBrandImage,
   formatDigitalPriceLabel,
 } from '@/lib/digital-brand-images'
+import { locksCustomUsdAmount } from '@/lib/digital-services-prepaidforge'
 import { detectDigitalPayoutKycKind } from '@/lib/digital-payout-kyc'
 import {
   buildPublicChatGptPlans,
@@ -143,6 +144,8 @@ export default async function DigitalServiceDetailPage({ params }: Props) {
         isFixedPrice,
         category: product.category,
         payoutKind: detectDigitalPayoutKycKind(product),
+        prepaidForgeRegion: product.prepaidForge?.region || null,
+        prepaidForgeLocksCustomAmount: locksCustomUsdAmount(product.prepaidForge),
         backHref: isNetflixPlanKey(product.key)
           ? '/digital-services/netflix'
           : isChatGptPlanKey(product.key)

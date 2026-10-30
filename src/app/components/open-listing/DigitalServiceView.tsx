@@ -25,6 +25,8 @@ export type DigitalServicePublicDetail = {
   backLabel?: string
   category?: string | null
   payoutKind?: 'cny' | 'usdt' | null
+  prepaidForgeRegion?: string | null
+  prepaidForgeLocksCustomAmount?: boolean
 }
 
 const page: CSSProperties = {
@@ -126,12 +128,16 @@ export default function DigitalServiceView({
     }
     const custom = Number(customUsd)
     const usd =
-      Number.isFinite(custom) && custom > 0 ? custom : selectedUsd
+      product.prepaidForgeLocksCustomAmount ||
+      !(Number.isFinite(custom) && custom > 0)
+        ? selectedUsd
+        : custom
     return Math.round(usd * Math.max(1, product.usdToMwkRate || 4700))
   }, [
     product.isFixedPrice,
     product.fixedMwkPrice,
     product.usdToMwkRate,
+    product.prepaidForgeLocksCustomAmount,
     selectedUsd,
     customUsd,
   ])
@@ -237,9 +243,11 @@ export default function DigitalServiceView({
       const custom = Number(customUsd)
       const usdPayload = product.isFixedPrice
         ? null
-        : Number.isFinite(custom) && custom >= 1
-          ? custom
-          : selectedUsd
+        : product.prepaidForgeLocksCustomAmount
+          ? selectedUsd
+          : Number.isFinite(custom) && custom >= 1
+            ? custom
+            : selectedUsd
 
       const payoutKind = product.payoutKind || null
       const payoutKyc = payoutKind
@@ -396,6 +404,18 @@ export default function DigitalServiceView({
                   {product.subtitle}
                 </p>
               ) : null}
+              {product.prepaidForgeRegion ? (
+                <p
+                  style={{
+                    margin: '6px 0 0',
+                    color: '#9A3412',
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  Redeemable in {product.prepaidForgeRegion}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -438,13 +458,25 @@ export default function DigitalServiceView({
                     )
                   })}
                 </div>
-                <input
-                  style={input}
-                  inputMode="decimal"
-                  placeholder={`Or enter custom ${unit} amount`}
-                  value={customUsd}
-                  onChange={e => setCustomUsd(e.target.value)}
-                />
+                {product.prepaidForgeLocksCustomAmount ? (
+                  <p
+                    style={{
+                      margin: '4px 0 0',
+                      fontSize: 12.5,
+                      color: '#6B7280',
+                    }}
+                  >
+                    Choose a listed amount. Custom amounts are off for instant PIN delivery.
+                  </p>
+                ) : (
+                  <input
+                    style={input}
+                    inputMode="decimal"
+                    placeholder={`Or enter custom ${unit} amount`}
+                    value={customUsd}
+                    onChange={e => setCustomUsd(e.target.value)}
+                  />
+                )}
                 <div
                   style={{
                     marginTop: 8,

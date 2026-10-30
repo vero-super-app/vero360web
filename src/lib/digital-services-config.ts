@@ -1,5 +1,10 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { getAdminDb } from '@/lib/firebase-admin'
+import {
+  parsePrepaidForgeConfig,
+  prepaidForgeForFirestore,
+  type PrepaidForgeProductConfig,
+} from '@/lib/digital-services-prepaidforge'
 
 export const DIGITAL_SERVICES_CONFIG_DOC = 'app_config/digital_services'
 
@@ -31,6 +36,8 @@ export type DigitalProductPriceConfig = {
   /** ChatGPT-style feature steps shown on the plan picker. */
   featureLines?: string[]
   recommended?: boolean
+  /** Opt-in PrepaidForge PIN auto-fulfill. Missing = manual. */
+  prepaidForge?: PrepaidForgeProductConfig | null
 }
 
 export type DigitalServicesConfig = {
@@ -338,6 +345,7 @@ function parseProduct(raw: unknown): DigitalProductPriceConfig | null {
     planBadge: String(d.planBadge || '').trim() || undefined,
     featureLines: parseStringList(d.featureLines),
     recommended: d.recommended === true,
+    prepaidForge: parsePrepaidForgeConfig(d.prepaidForge),
   }
 }
 
@@ -397,6 +405,8 @@ function productForFirestore(p: DigitalProductPriceConfig): Record<string, unkno
     .filter(Boolean)
   if (featureLines.length) out.featureLines = featureLines
   if (p.recommended === true) out.recommended = true
+  const pf = prepaidForgeForFirestore(p.prepaidForge)
+  if (pf) out.prepaidForge = pf
   return out
 }
 
@@ -422,6 +432,7 @@ function mergeWithDefaults(saved: Partial<DigitalServicesConfig> | null): Digita
       hubKey: p.hubKey || prev?.hubKey || null,
       planBadge: p.planBadge || prev?.planBadge,
       isHub: p.isHub === true || prev?.isHub === true,
+      prepaidForge: p.prepaidForge || prev?.prepaidForge || null,
     })
   }
   // Older configs sold one ChatGPT Plus at MWK 35,000. Show the two plans.

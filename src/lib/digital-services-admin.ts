@@ -18,6 +18,7 @@ import {
   isAppBuyerUid,
   parsePayoutKyc,
 } from '@/lib/digital-payout-kyc'
+import { kickDigitalOrderAutoFulfill } from '@/lib/digital-services-fulfill'
 import { sendFcmToUid } from '@/lib/courier-push'
 
 export const PLATFORM_WALLET_USER_ID = 'super_admin'
@@ -140,6 +141,11 @@ export function parseDigitalServiceOrder(
     platformFeeTxId: str(data.platformFeeTxId) || null,
     isGuest: data.isGuest === true || !isAppBuyerUid(str(data.buyerUid || data.userId), data.isGuest === true),
     payoutKyc: parsePayoutKyc(data.payoutKyc),
+    fulfillmentMode: str(data.fulfillmentMode) || null,
+    fulfillmentProvider: str(data.fulfillmentProvider) || null,
+    fulfillmentError: str(data.fulfillmentError) || null,
+    prepaidForgeSku: str(data.prepaidForgeSku) || null,
+    prepaidForgeRegion: str(data.prepaidForgeRegion) || null,
     fulfillment: (() => {
       const raw = data.fulfillment
       const map =
@@ -350,6 +356,9 @@ export async function updateDigitalServiceOrderStatus(
       title: `Payment received · ${parsed.productName}`,
       body: `We received your ${parsed.productName} payment. Open My Digital Orders — we will send your details there.`,
     })
+  }
+  if (nextStatus === 'paid') {
+    kickDigitalOrderAutoFulfill(id, existingData)
   }
   return parsed
 }
